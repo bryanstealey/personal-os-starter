@@ -1,0 +1,94 @@
+#!/bin/bash
+# Nightly backup: commit and push dirty files across all projects
+# Runs via cron at 11:30 PM. Logs to ~/[VAULT]/05-system/processing-logs/nightly-backup.log
+#
+# Configuration:
+#   PROJECT_DIRS — space-separated list of directories to scan (default: ~/projects/)
+#   VAULT_DIR — path to your vault (default: ~/cortex/)
+#   SKIP_LIST — array of repo names to skip (read-only clones, repos you don't own)
+
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# Configurable paths — edit these for your setup
+PROJECT_DIRS="${PROJECT_DIRS:-$HOME/projects/}"
+VAULT_DIR="${VAULT_DIR:-$HOME/cortex/}"
+LOG="${VAULT_DIR}05-system/processing-logs/nightly-backup.log"
+DATE=$(date +%Y-%m-%d)
+TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Ensure log directory exists
+mkdir -p "$(dirname "$LOG")"
+
+echo "[$TIMESTAMP] Nightly backup starting" >> "$LOG"
+
+# Repos to skip — read-only clones or repos you don't own
+SKIP_LIST=(
+  # Add repo names here, e.g.:
+  # "some-read-only-clone"
+)
+
+backed_up=0
+skipped=0
+
+for dir in ${PROJECT_DIRS}*/ "${VAULT_DIR}"; do
+  [ -d "$dir/.git" ] || continue
+  name=$(basename "$dir")
+
+  # Skip if in the explicit skip list
+  if [[ " ${SKIP_LIST[*]} " == *" $name "* ]]; then
+    echo "[$TIMESTAMP] $name: skipped (in skip list)" >> "$LOG"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  # Skip if no remote configured
+  if ! git -C "$dir" remote get-url origin &>/dev/null; then
+    echo "[$TIMESTAMP] $name: skipped (no remote)" >> "$LOG"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  # Resolve the actual branch name
+  branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)
+  if [ -z "$branch" ]; then
+    echo "[$TIMESTAMP] $name: skipped (detached HEAD)" >> "$LOG"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
+  # Fetch remote to detect divergence
+  git -C "$dir" fetch origin 2>>"$LOG"
+
+  # Check for dirty files (uncommitted changes)
+  dirty=$(git -C "$dir" status --short 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$dirty" -eq 0 ]; then
+    # Check for unpushed commits
+    unpushed=$(git -C "$dir" rev-list --count @{upstream}..HEAD 2>/dev/null || echo "0")
+    if [ "$unpushed" -eq 0 ]; then
+      skipped=$((skipped + 1))
+      continue
+    fi
+    # Pull --rebase to reconcile any remote changes, then push
+    git -C "$dir" pull --rebase origin "$branch" 2>>"$LOG" && \
+      git -C "$dir" push origin "$branch" 2>>"$LOG" && \
+      echo "[$TIMESTAMP] $name: pushed $unpushed unpushed commits" >> "$LOG" || \
+      echo "[$TIMESTAMP] $name: push FAILED (unpushed only)" >> "$LOG"
+    backed_up=$((backed_up + 1))
+    continue
+  fi
+
+  # Stage, commit, pull --rebase to reconcile, then push
+  git -C "$dir" add -A 2>>"$LOG"
+  git -C "$dir" commit -m "Nightly backup: $DATE" 2>>"$LOG"
+  git -C "$dir" pull --rebase origin "$branch" 2>>"$LOG" && \
+    git -C "$dir" push origin "$branch" 2>>"$LOG" && \
+    echo "[$TIMESTAMP] $name: committed $dirty files and pushed" >> "$LOG" || \
+    echo "[$TIMESTAMP] $name: FAILED" >> "$LOG"
+  backed_up=$((backed_up + 1))
+done
+
+echo "[$TIMESTAMP] Nightly backup complete: $backed_up backed up, $skipped skipped (clean or no remote)" >> "$LOG"
+
+# Heartbeat for health monitoring
+mkdir -p "$HOME/.cortex-health"
+date +%s > "$HOME/.cortex-health/nightly-backup"

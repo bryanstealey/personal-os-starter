@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""calendar-agenda — calendar agenda with declined-event awareness.
+
+Wraps `gws calendar events list` across configured Google accounts.
+Marks declined events with a special symbol so rituals don't treat them
+as open decisions.
+
+Usage:
+    calendar-agenda --today
+    calendar-agenda --tomorrow
+    calendar-agenda --week
+    calendar-agenda --days 14
+
+Configuration:
+    Set CALENDAR_ACCOUNTS as a JSON string in your environment, e.g.:
+    export CALENDAR_ACCOUNTS='[["gws", "you@gmail.com"], ["gws-work", "you@company.com"]]'
+
+    Or edit the ACCOUNTS list below directly.
+"""
+import argparse
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timedelta
+
+# Default accounts — edit these or use CALENDAR_ACCOUNTS env var
+DEFAULT_ACCOUNTS = [
+    ("gws", "primary@gmail.com"),
+]
+
+def get_accounts():
+    env_accounts = os.environ.get("CALENDAR_ACCOUNTS")
+    if env_accounts:
+        try:
+            return [tuple(a) for a in json.loads(env_accounts)]
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return DEFAULT_ACCOUNTS
+
+# Collect self-emails from accounts for declined-event detection
+def get_self_emails(accounts):
+    return {email.lower() for _, email in accounts}
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description=__doc__)
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--today", action="store_true", help="today's events")
+    g.add_argument("--tomorrow", action="store_true", help="tomorrow's events")
+    g.add_argument("--week", action="store_true", help="next 7 days")
+    g.add_argument("--days", type=int, help="next N days")
+    p.add_argument("--format", choices=["table", "json"], default="table")
+    return p.parse_args()
+
+
+def time_range(args):
+    now = datetime.now().astimezone()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if args.today:
+        start, end = today_start, today_start + timedelta(days=1)
+    elif args.tomorrow:
+        start = today_start + timedelta(days=1)
+        end = start + timedelta(days=1)
+    elif args.week:
+        start, end = today_start, today_start + timedelta(days=7)
+    elif args.days:
+        start, end = today_start, today_start + timedelta(days=args.days)
+    else:
+        start, end = now, now + timedelta(days=1)
+    return start.isoformat(), end.isoformat()
+
+
+def fetch(cmd, t_min, t_max):
+    params = json.dumps({
+        "calendarId": "primary",
+        "timeMin": t_min,
+        "timeMax": t_max,
+        "singleEvents": True,
+        "orderBy": "startTime",
+    })
+    try:
+        result = subprocess.run(
+            [cmd, "calendar", "events", "list", "--params", params, "--format", "json"],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as e:
+        print(f"WARN: {cmd} unavailable: {e}", file=sys.stderr)
+        return []
+    if result.returncode != 0:
+        print(f"WARN: {cmd} failed: {result.stderr.strip()}", file=sys.stderr)
+        return []
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return []
+    return data.get("items", [])
+
+
+def response_for(event, self_emails):
+    attendees = event.get("attendees") or []
+    for a in attendees:
+        if a.get("self"):
+            return a.get("responseStatus", "needsAction")
+    for a in attendees:
+        if a.get("email", "").lower() in self_emails:
+            return a.get("responseStatus", "needsAction")
+    return "accepted"
+
+
+def extract_time(slot):
+    return slot.get("dateTime") or slot.get("date", "")
+
+
+def format_event(event, calendar_name, self_emails):
+    status = response_for(event, self_emails)
+    declined = status == "declined"
+    summary = event.get("summary", "(no title)").strip()
+    marker = "⊘ " if declined else ""
+    suffix = " (declined)" if declined else ""
+    return {
+        "calendar": calendar_name,
+        "start": extract_time(event.get("start", {})),
+        "end": extract_time(event.get("end", {})),
+        "location": event.get("location", "") or "",
+        "summary": f"{marker}{summary}{suffix}",
+        "status": status,
+        "declined": declined,
+    }
+
+
+def render_table(events):
+    if not events:
+        print("(no events)")
+        return
+    col_cal = max(len(e["calendar"]) for e in events)
+    col_start = max(len(e["start"]) for e in events)
+    col_end = max(len(e["end"]) for e in events)
+    col_loc = max((len(e["location"]) for e in events), default=8)
+    header = (
+        f"{'calendar':<{col_cal}}  "
+        f"{'end':<{col_end}}  "
+        f"{'location':<{col_loc}}  "
+        f"{'start':<{col_start}}  "
+        f"summary"
+    )
+    print(header)
+    print("─" * (len(header) + max(len(e["summary"]) for e in events)))
+    for e in events:
+        print(
+            f"{e['calendar']:<{col_cal}}  "
+            f"{e['end']:<{col_end}}  "
+            f"{e['location']:<{col_loc}}  "
+            f"{e['start']:<{col_start}}  "
+            f"{e['summary']}"
+        )
+
+
+def main():
+    args = parse_args()
+    accounts = get_accounts()
+    self_emails = get_self_emails(accounts)
+    t_min, t_max = time_range(args)
+    events = []
+    for cmd, cal_name in accounts:
+        for raw in fetch(cmd, t_min, t_max):
+            events.append(format_event(raw, cal_name, self_emails))
+    events.sort(key=lambda e: e["start"])
+    if args.format == "json":
+        json.dump(events, sys.stdout, indent=2)
+        print()
+    else:
+        render_table(events)
+
+
+if __name__ == "__main__":
+    main()
