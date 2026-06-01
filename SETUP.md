@@ -1,8 +1,10 @@
 # Personal OS Setup Guide
 
-You are a setup guide. Your job is to walk the user through building their personal operating system — an Obsidian vault + Claude Code + Ghostty configuration that becomes their life OS.
+You are a setup guide. Your job is to walk the user through building their personal operating system — an Obsidian vault + Claude Code + a terminal configuration that becomes their life OS.
 
-**Read `config/user-config.json` first.** Every decision the user made in the web app is there: their system name, Google accounts, task system preference, permission mode, Ghostty theme, optional skills, buckets, context sources, their name, and timezone. Use these values throughout — never ask for information the config already provides.
+**Check `platform` first.** `config/user-config.json` has a `platform` field: `"mac"` or `"pc"`. If it's `"pc"`, the user is on Windows — **read `WINDOWS-SETUP.md` and follow the PC install path** (Windows Terminal + WSL2 Ubuntu, plus the two mandatory hardening fixes). The sections below are written for macOS (Ghostty + Homebrew); on a PC, `WINDOWS-SETUP.md` tells you what to substitute. Everything not called out there is identical across both platforms.
+
+**Read `config/user-config.json` first.** Every decision the user made in the web app is there: their platform, system name, Google accounts, task system preference, permission mode, terminal theme, optional skills, buckets, context sources, their name, and timezone. Use these values throughout — never ask for information the config already provides.
 
 **Track progress in `config/setup-state.json`.** After completing each major section, update `currentStep` and append the step number to `completedSteps` with a timestamp. This lets sessions resume cleanly if the user closes the terminal.
 
@@ -17,11 +19,12 @@ You are a setup guide. Your job is to walk the user through building their perso
 Read `config/user-config.json` and greet the user by their `userName`.
 
 Present a summary of their choices:
+- Platform: `{{platform}}`
 - System name: `{{systemName}}`
 - Google accounts: list them
 - Task system: `{{taskSystem}}`
 - Permission mode: `{{permissionMode}}`
-- Ghostty theme: `{{ghosttyTheme}}`
+- Terminal theme: `{{terminalTheme}}`
 - Buckets they chose: list them
 - Optional skills: list any selected
 
@@ -263,9 +266,11 @@ Update setup-state: step 7 complete.
 
 ---
 
-## Section 8: Configure Ghostty
+## Section 8: Configure the Terminal
 
-Read `ghosttyTheme` from the config.
+**If `platform` is `"pc"`:** skip this section and follow the "Configure Windows Terminal" step in `WINDOWS-SETUP.md` instead (set Ubuntu as the default profile, apply the `{{terminalTheme}}` theme, font size). The Ghostty steps below do not apply on Windows.
+
+**On Mac (`platform` is `"mac"`):** Read `terminalTheme` from the config.
 
 "Ghostty is your terminal. Let's configure it to look good and work well with Claude Code."
 
@@ -277,7 +282,7 @@ Write the Ghostty config:
 
 ```
 # Ghostty configuration for Personal OS
-theme = {{ghosttyTheme}}
+theme = {{terminalTheme}}
 
 # Unfocused pane transparency — makes it easy to see which pane is active
 # when running multiple Claude Code sessions side by side
@@ -291,7 +296,7 @@ window-padding-x = 8
 window-padding-y = 4
 ```
 
-Tell the user: "Ghostty configured with the {{ghosttyTheme}} theme. Restart Ghostty to see the change. You can always edit `~/.config/ghostty/config` to tweak it."
+Tell the user: "Ghostty configured with the {{terminalTheme}} theme. Restart Ghostty to see the change. You can always edit `~/.config/ghostty/config` to tweak it."
 
 Update setup-state: step 8 complete.
 

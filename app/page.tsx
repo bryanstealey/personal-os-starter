@@ -4,10 +4,18 @@ import { useState, useCallback } from "react";
 import Image from "next/image";
 
 interface UserConfig {
+  platform: "mac" | "pc" | null;
   systemName: string;
-  preflight: { ghostty: boolean; obsidian: boolean; claudeCode: boolean; zoxide: boolean };
+  preflight: {
+    ghostty: boolean;
+    windowsTerminal: boolean;
+    wsl: boolean;
+    obsidian: boolean;
+    claudeCode: boolean;
+    zoxide: boolean;
+  };
   permissionMode: "auto" | "restrictive" | "permissive";
-  ghosttyTheme: "light" | "dark";
+  terminalTheme: "light" | "dark";
   googleAccounts: { email: string; label: string }[];
   businessPersonalSplit: boolean;
   taskSystem: "google-tasks" | "todoist" | "other";
@@ -20,10 +28,18 @@ interface UserConfig {
 }
 
 const DEFAULT_CONFIG: UserConfig = {
+  platform: null,
   systemName: "",
-  preflight: { ghostty: false, obsidian: false, claudeCode: false, zoxide: false },
+  preflight: {
+    ghostty: false,
+    windowsTerminal: false,
+    wsl: false,
+    obsidian: false,
+    claudeCode: false,
+    zoxide: false,
+  },
   permissionMode: "auto",
-  ghosttyTheme: "light",
+  terminalTheme: "light",
   googleAccounts: [{ email: "", label: "Primary" }],
   businessPersonalSplit: false,
   taskSystem: "google-tasks",
@@ -247,7 +263,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           {[
             { name: "Obsidian", role: "Your knowledge vault" },
             { name: "Claude Code", role: "Your AI partner" },
-            { name: "Ghostty", role: "Your terminal" },
+            { name: "Terminal", role: "Where you run it" },
           ].map((tool) => (
             <div
               key={tool.name}
@@ -271,6 +287,93 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       >
         Let&apos;s build it
       </button>
+    </div>
+  );
+}
+
+function PlatformStep({
+  config,
+  setConfig,
+  onNext,
+  onBack,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const options: {
+    id: "mac" | "pc";
+    name: string;
+    detail: string;
+  }[] = [
+    {
+      id: "mac",
+      name: "Mac",
+      detail:
+        "macOS. We'll use Ghostty as your terminal and install everything with Homebrew.",
+    },
+    {
+      id: "pc",
+      name: "PC",
+      detail:
+        "Windows 10 or 11. We'll set you up with Windows Terminal running Linux (WSL2) underneath, so your system behaves the same way as it does on a Mac.",
+    },
+  ];
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold tracking-tight mb-2">
+        First things first
+      </h1>
+      <p className="text-[#475569] text-lg mb-10">
+        Are you on a PC or a Mac? This decides how we set everything up, so it
+        matters more than anything else you&apos;ll pick.
+      </p>
+
+      <div className="grid grid-cols-2 gap-4 w-full mb-8">
+        {options.map((opt) => (
+          <button
+            key={opt.id}
+            onClick={() => setConfig({ ...config, platform: opt.id })}
+            className={`flex flex-col items-center text-center p-6 rounded-2xl border-2 cursor-pointer transition-all ${
+              config.platform === opt.id
+                ? "border-[#16A34A] bg-[#DCFCE7]/40"
+                : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+            }`}
+          >
+            <p className="text-2xl font-bold mb-2">{opt.name}</p>
+            <p className="text-[#475569] text-sm leading-relaxed">
+              {opt.detail}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <p className="text-[#94A3B8] text-sm mb-8 max-w-md">
+        Not sure? On a Mac the menu bar has an apple logo in the top-left
+        corner. On a PC there&apos;s a Windows logo on the taskbar at the bottom.
+      </p>
+
+      <div className="flex items-center gap-6">
+        <button
+          onClick={onBack}
+          className="text-[#475569] hover:text-[#1A1A1A] transition-colors text-sm font-medium"
+        >
+          &larr; Back
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!config.platform}
+          className={`px-10 py-4 rounded-lg font-semibold text-lg transition-colors ${
+            config.platform
+              ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
+              : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"
+          }`}
+        >
+          Continue
+        </button>
+      </div>
     </div>
   );
 }
@@ -392,23 +495,24 @@ function TerminalStep({
   onNext: () => void;
   onBack: () => void;
 }) {
+  const terminalName = config.platform === "pc" ? "Windows Terminal" : "Ghostty";
   return (
     <StepShell
       step={2}
       title="Terminal theme"
-      subtitle="Pick a color scheme for Ghostty. Everything else — pane transparency, status indicators — gets configured automatically during setup."
+      subtitle={`Pick a color scheme for ${terminalName}. Everything else — pane layout, status indicators — gets configured automatically during setup.`}
       onNext={onNext}
       onBack={onBack}
     >
       <div className="space-y-6">
         <div>
-          <p className="font-medium text-sm mb-3">Ghostty color theme</p>
+          <p className="font-medium text-sm mb-3">{terminalName} color theme</p>
           <div className="grid grid-cols-2 gap-3">
             {(["light", "dark"] as const).map((theme) => (
               <label
                 key={theme}
                 className={`flex flex-col items-center p-4 rounded-xl border cursor-pointer transition-all ${
-                  config.ghosttyTheme === theme
+                  config.terminalTheme === theme
                     ? "border-[#16A34A] bg-[#DCFCE7]/30"
                     : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
                 }`}
@@ -416,9 +520,9 @@ function TerminalStep({
                 <input
                   type="radio"
                   name="theme"
-                  checked={config.ghosttyTheme === theme}
+                  checked={config.terminalTheme === theme}
                   onChange={() =>
-                    setConfig({ ...config, ghosttyTheme: theme })
+                    setConfig({ ...config, terminalTheme: theme })
                   }
                   className="sr-only"
                 />
@@ -540,12 +644,9 @@ function PreflightStep({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const allChecked =
-    config.preflight.ghostty &&
-    config.preflight.obsidian &&
-    config.preflight.claudeCode;
+  const isPc = config.platform === "pc";
 
-  const items = [
+  const macItems = [
     {
       key: "ghostty" as const,
       name: "Ghostty",
@@ -569,11 +670,49 @@ function PreflightStep({
     },
   ];
 
+  const pcItems = [
+    {
+      key: "windowsTerminal" as const,
+      name: "Windows Terminal",
+      install: "Pre-installed on Windows 11 — open the Microsoft Store to update or to install it on Windows 10.",
+      link: "https://learn.microsoft.com/en-us/windows/terminal/install",
+      desc: "Your terminal. It's the modern Windows terminal with tabs and split panes — this is where you'll run Claude Code.",
+    },
+    {
+      key: "wsl" as const,
+      name: "WSL2 + Ubuntu",
+      install: "wsl --install",
+      link: "https://learn.microsoft.com/en-us/windows/wsl/install",
+      desc: "Linux running inside Windows. Open Windows Terminal, run the command above as administrator, then restart. This keeps your system behaving like a Mac under the hood. (Your installer will help with this.)",
+    },
+    {
+      key: "obsidian" as const,
+      name: "Obsidian",
+      install: "Download the Windows installer from obsidian.md",
+      link: "https://obsidian.md",
+      desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
+    },
+    {
+      key: "claudeCode" as const,
+      name: "Claude Code",
+      install: "npm install -g @anthropic-ai/claude-code",
+      link: "https://docs.anthropic.com/en/docs/claude-code",
+      desc: "Your AI partner. Install this inside Ubuntu (WSL), then run 'claude' once to authenticate with your Anthropic account.",
+    },
+  ];
+
+  const items = isPc ? pcItems : macItems;
+  const allChecked = items.every((item) => config.preflight[item.key]);
+
   return (
     <StepShell
       step={0}
       title="Install the tools"
-      subtitle="You need three things installed before we continue. Check each one off as you go."
+      subtitle={
+        isPc
+          ? "Here's what we'll get installed on your PC. Check each one off as you go — your installer can walk you through any of these."
+          : "You need three things installed before we continue. Check each one off as you go."
+      }
       onNext={onNext}
       onBack={onBack}
       nextDisabled={!allChecked}
@@ -1143,6 +1282,7 @@ function ReviewStep({
     >
       <div className="space-y-4">
         {[
+          { label: "Platform", value: config.platform === "pc" ? "PC (Windows)" : "Mac" },
           { label: "System name", value: config.systemName },
           { label: "Your name", value: config.userName },
           { label: "Timezone", value: config.timezone },
@@ -1157,7 +1297,7 @@ function ReviewStep({
           },
           {
             label: "Terminal theme",
-            value: config.ghosttyTheme === "light" ? "Light" : "Dark",
+            value: config.terminalTheme === "light" ? "Light" : "Dark",
           },
           {
             label: "Google accounts",
@@ -1280,7 +1420,7 @@ function ExportStep({
 
         <div className="bg-[#1E293B] rounded-xl p-6">
           <p className="text-sm font-medium text-[#94A3B8] mb-3">
-            Step 3 &mdash; Open Ghostty and start Claude Code
+            Step 3 &mdash; Open {config.platform === "pc" ? "Windows Terminal" : "Ghostty"} and start Claude Code
           </p>
           <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono text-[#FAFAFA]">
             <span className="text-[#94A3B8]">$</span> cd ~/{config.systemName} && claude
@@ -1310,7 +1450,7 @@ function ExportStep({
 }
 
 export default function Home() {
-  const [step, setStep] = useState(-1);
+  const [step, setStep] = useState(-2);
   const [config, setConfig] = useState<UserConfig>(DEFAULT_CONFIG);
 
   const next = () => setStep((s) => s + 1);
@@ -1318,7 +1458,15 @@ export default function Home() {
 
   return (
     <main className="flex-1 flex flex-col px-6 py-8 sm:px-8 lg:px-12 min-h-screen">
-      {step === -1 && <WelcomeStep onNext={next} />}
+      {step === -2 && <WelcomeStep onNext={next} />}
+      {step === -1 && (
+        <PlatformStep
+          config={config}
+          setConfig={setConfig}
+          onNext={next}
+          onBack={back}
+        />
+      )}
       {step === 0 && (
         <PreflightStep
           config={config}
