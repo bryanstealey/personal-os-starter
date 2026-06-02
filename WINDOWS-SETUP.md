@@ -89,6 +89,38 @@ username was `eliza`, not `liz`; a hardcoded `/home/liz` would have silently ope
 
 ---
 
+## WSL prerequisites (run once, right after creating the Ubuntu user)
+
+Fresh Ubuntu doesn't ship everything the kit assumes. Install these **before** running `SETUP.md`, in this order:
+
+```bash
+# 1. System packages the hooks and scripts depend on
+sudo apt update
+sudo apt install -y jq build-essential python3 python-is-python3
+
+# 2. Node.js via nvm — installs into your home dir, so 'npm install -g'
+#    never hits the root-owned-folder permission (EACCES) error
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+source ~/.bashrc
+nvm install --lts
+
+# 3. Claude Code (now that Node exists)
+npm install -g @anthropic-ai/claude-code
+
+# 4. Put ~/.local/bin on PATH — the kit installs calendar-agenda,
+#    nightly-backup, and system-health there
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+Why each one:
+- **`jq`** — required by all six hooks (`npm-install-guard`, `read-before-claiming`, etc.); not preinstalled on Ubuntu. Without it the hooks error on every fire and Claude Code gets erratic.
+- **`build-essential` / `python3`** — needed by setup scripts and native npm modules.
+- **nvm for Node** — Ubuntu has no Node by default, and a system `npm install -g` fails with EACCES on a root-owned prefix. nvm avoids both. (This is exactly the wall Julian hit on his beta run.)
+- **`~/.local/bin` on PATH** — WSL has no macOS `path_helper`, so without this line the calendar wrapper, nightly backup, and health check are "command not found."
+
+---
+
 ## What Changes vs. the Mac Guide
 
 The PC path replaces or rewrites these `SETUP.md` sections:
@@ -96,7 +128,7 @@ The PC path replaces or rewrites these `SETUP.md` sections:
 | Mac (SETUP.md) | PC equivalent |
 |---|---|
 | Preflight checks for **Ghostty** | Check for **Windows Terminal + WSL2 Ubuntu** instead |
-| (no equivalent) | **New step:** WSL2 install via admin PowerShell (`wsl --install`), create Ubuntu user, apt prereqs |
+| (no equivalent) | **New step:** WSL2 install via admin PowerShell (`wsl --install`), create Ubuntu user, then the WSL prerequisites above (jq, build tools, Node via nvm, `~/.local/bin` on PATH) |
 | (no equivalent) | **New step:** write `.wslconfig` (RAM cap), `wsl --shutdown`, restart |
 | **Section 8: Configure Ghostty** (`~/.config/ghostty/config`) | **Configure Windows Terminal** — set Ubuntu as default profile, light theme, font size. No Ghostty. |
 | Pane shortcuts (Ghostty) | Windows Terminal pane shortcuts (Alt+Shift+± to split) |

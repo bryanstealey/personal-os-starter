@@ -11,6 +11,7 @@ interface UserConfig {
     windowsTerminal: boolean;
     wsl: boolean;
     obsidian: boolean;
+    node: boolean;
     claudeCode: boolean;
     zoxide: boolean;
   };
@@ -35,6 +36,7 @@ const DEFAULT_CONFIG: UserConfig = {
     windowsTerminal: false,
     wsl: false,
     obsidian: false,
+    node: false,
     claudeCode: false,
     zoxide: false,
   },
@@ -662,6 +664,13 @@ function PreflightStep({
       desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
     },
     {
+      key: "node" as const,
+      name: "Node.js",
+      install: "brew install node",
+      link: "https://nodejs.org",
+      desc: "The runtime Claude Code is built on. Claude Code won't install without it, so this goes first.",
+    },
+    {
       key: "claudeCode" as const,
       name: "Claude Code",
       install: "npm install -g @anthropic-ai/claude-code",
@@ -691,6 +700,14 @@ function PreflightStep({
       install: "Download the Windows installer from obsidian.md",
       link: "https://obsidian.md",
       desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
+    },
+    {
+      key: "node" as const,
+      name: "Node.js (via nvm)",
+      install:
+        "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && source ~/.bashrc && nvm install --lts",
+      link: "https://github.com/nvm-sh/nvm",
+      desc: "Run this inside Ubuntu (WSL). nvm installs Node into your home directory, which sidesteps the permission errors a system-wide install hits. Claude Code needs Node, so this goes first.",
     },
     {
       key: "claudeCode" as const,

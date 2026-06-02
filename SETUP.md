@@ -527,18 +527,28 @@ Read `googleAccounts` from the config. For each account:
 3. "A browser window will open. Sign in with {{email}} and grant the permissions."
 4. "When you see 'Authentication successful,' come back here and tell me."
 
-If the user has multiple accounts, set up aliases:
+If the user has multiple accounts, set up aliases.
+
+First make sure `~/.local/bin` exists and is on PATH (the kit installs its CLIs here — wrappers, the calendar tool, the health check — on both Mac and WSL). Pick the rc file for the user's shell: `~/.zshrc` on macOS, `~/.bashrc` on WSL/Ubuntu.
 
 ```bash
-# For the primary account:
-# gws is the default
+mkdir -p ~/.local/bin
+RC="$HOME/.zshrc"   # use $HOME/.bashrc on WSL/Ubuntu
+if ! echo ":$PATH:" | grep -q ":$HOME/.local/bin:"; then
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$RC"
+  export PATH="$HOME/.local/bin:$PATH"
+fi
+```
 
-# For additional accounts, create wrapper scripts:
-cat > /usr/local/bin/gws-{{alias}} << 'EOF'
+Then create a wrapper per additional account (the primary account uses plain `gws`):
+
+```bash
+# For additional accounts, create wrapper scripts in ~/.local/bin (no sudo, works on Mac and WSL):
+cat > ~/.local/bin/gws-{{alias}} << 'EOF'
 #!/bin/bash
 GWS_ACCOUNT={{email}} exec gws "$@"
 EOF
-chmod +x /usr/local/bin/gws-{{alias}}
+chmod +x ~/.local/bin/gws-{{alias}}
 ```
 
 Test each connection:

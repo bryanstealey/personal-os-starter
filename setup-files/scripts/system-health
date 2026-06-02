@@ -1,51 +1,57 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # System Health Check
 # Reads heartbeat files from ~/.cortex-health/ and reports stale components.
 # Called by the morning ritual as its first step.
 #
-# Components are configurable — add entries to the COMPONENTS array as
+# Components are configurable — add entries to the COMPONENTS list as
 # automations are set up. The heartbeat directory and component list grow
 # over time; start with just nightly-backup.
+#
+# Portable bash (works on Ubuntu/WSL bash 5 and macOS bash 3.2). No
+# associative arrays so it runs everywhere the kit installs.
 
 HEARTBEAT_DIR="$HOME/.cortex-health"
 NOW=$(date +%s)
 ISSUES=()
 
-# Components: name=max_age_hours
+# Components: "name max_age_hours", one per line.
 # Add new components here as automations are wired up.
-# Format: COMPONENTS[name]=max_hours
-typeset -A COMPONENTS
-COMPONENTS=(
-    nightly-backup 26
-    shutdown 48
-    midday 30
-    weekly 192
-)
+COMPONENTS="
+nightly-backup 26
+shutdown 48
+midday 30
+weekly 192
+"
 
-for name max_hours in ${(kv)COMPONENTS}; do
+COMPONENT_COUNT=0
+while read -r name max_hours; do
+    [ -z "$name" ] && continue
+    COMPONENT_COUNT=$((COMPONENT_COUNT + 1))
     max_seconds=$((max_hours * 3600))
     hb_file="$HEARTBEAT_DIR/$name"
 
-    if [[ ! -f "$hb_file" ]]; then
+    if [ ! -f "$hb_file" ]; then
         ISSUES+=("$name: NO HEARTBEAT (never ran or not yet wired)")
         continue
     fi
 
-    last=$(<"$hb_file")
+    last=$(cat "$hb_file")
     age=$((NOW - last))
     age_hours=$((age / 3600))
 
-    if [[ $age -gt $max_seconds ]]; then
+    if [ "$age" -gt "$max_seconds" ]; then
         ISSUES+=("$name: STALE (${age_hours}h ago, expected within ${max_hours}h)")
     fi
-done
+done <<EOF
+$COMPONENTS
+EOF
 
 # Output
-if [[ ${#ISSUES[@]} -eq 0 ]]; then
-    echo '{"status": "healthy", "components": '${#COMPONENTS}'}'
+if [ ${#ISSUES[@]} -eq 0 ]; then
+    echo "{\"status\": \"healthy\", \"components\": $COMPONENT_COUNT}"
 else
-    echo '{"status": "issues", "count": '${#ISSUES[@]}'}'
-    for issue in $ISSUES; do
+    echo "{\"status\": \"issues\", \"count\": ${#ISSUES[@]}}"
+    for issue in "${ISSUES[@]}"; do
         echo "  - $issue"
     done
 fi

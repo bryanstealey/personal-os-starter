@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local handoffs / worklogs — never publish (contain client + pricing context)
+HANDOFF*.md
+WORKLOG*.md
