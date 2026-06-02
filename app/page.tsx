@@ -1412,7 +1412,7 @@ function ExportStep({
             Step 2 &mdash; Clone the setup repo and move your config into it
           </p>
           <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed text-[#FAFAFA]">
-            <span className="text-[#94A3B8]">$</span> git clone [repo-url] ~/{config.systemName}
+            <span className="text-[#94A3B8]">$</span> git clone https://github.com/bryanstealey/personal-os-starter.git ~/{config.systemName}
             <br />
             <span className="text-[#94A3B8]">$</span> mv ~/Downloads/user-config.json ~/{config.systemName}/config/
           </code>
