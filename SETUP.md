@@ -518,6 +518,27 @@ npm install -g @anthropic-ai/gws
 
 *Note: If this package name has changed, check `npm search gws google workspace` and use the current name.*
 
+### Create the user's Google OAuth app FIRST (do not skip — this is the #1 install blocker)
+
+**`gws auth login` will FAIL with `No OAuth client configured` until this is done.** `gws` needs the user's own Google OAuth app behind it. Each user creates their **own** app — never reuse someone else's `client_secret`. This is all done in the browser; **`gcloud` is NOT required.** It's the single fiddliest step of the whole install, so go slow and walk the user through it.
+
+Tell the user: "Next we give Claude permission to read your Gmail and Calendar. This is a one-time setup in Google's Cloud Console — about 5 minutes of clicking. I'll walk you through each step."
+
+1. **Create a project.** Go to **console.cloud.google.com** → project dropdown (top bar) → **New Project** → name it anything (e.g. "Personal OS") → Create → make sure it's selected.
+2. **Enable the two APIs.** Left menu → **APIs & Services → Library**. Search **"Gmail API"** → Enable. Then search **"Google Calendar API"** → Enable. (Both are required; missing one breaks email or calendar.)
+3. **Configure the consent screen + add yourself as a test user.** Left menu → **APIs & Services → OAuth consent screen** (newer UI: **Google Auth Platform → Audience**).
+   - User type: **External** (choose **Internal** only if the user has a Google Workspace org and wants it locked to that org).
+   - Fill the required app name + their email, save through the steps.
+   - **In the Test users section, add EVERY Google address they're connecting** (each address in `googleAccounts`). **This is the most-forgotten step** — skip it and login dies with "Access blocked / app not verified." (Internal apps skip this; in-domain accounts are auto-allowed.)
+4. **Create the OAuth client.** Left menu → **APIs & Services → Credentials** → **+ Create Credentials** → **OAuth client ID** → Application type: **Desktop app** → Create → **Download JSON**.
+5. **Place the file.** Save the downloaded JSON as `client_secret.json` here:
+   ```bash
+   mkdir -p ~/.config/gws
+   # move the downloaded file into place, e.g.:
+   mv ~/Downloads/client_secret_*.json ~/.config/gws/client_secret.json
+   ```
+   One app/`client_secret` covers all of this user's accounts on this project — they do NOT need a separate app per account (just add each account as a test user in step 3).
+
 ### Set up OAuth for each account
 
 Read `googleAccounts` from the config. For each account:
@@ -526,6 +547,11 @@ Read `googleAccounts` from the config. For each account:
 2. Run `gws auth login` (or `gws-{{alias}} auth login` for additional accounts)
 3. "A browser window will open. Sign in with {{email}} and grant the permissions."
 4. "When you see 'Authentication successful,' come back here and tell me."
+
+**Troubleshooting (these are the exact failures seen in real installs):**
+- `No OAuth client configured` → the `client_secret.json` step above wasn't done, or it's in the wrong place. Confirm it's at `~/.config/gws/client_secret.json`.
+- `Access blocked` / `app not verified` / `not a test user` → that email isn't a test user on the consent screen. Add it (step 3) and retry. Not a machine problem.
+- **Do not grant IAM roles or use `gcloud`** for a normal single-user install. Service Usage / IAM grants are only needed when an account is a *guest* on someone else's project — which never happens when the user owns their own app, as above.
 
 If the user has multiple accounts, set up aliases.
 

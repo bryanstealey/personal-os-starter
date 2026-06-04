@@ -134,11 +134,14 @@ The PC path replaces or rewrites these `SETUP.md` sections:
 | Pane shortcuts (Ghostty) | Windows Terminal pane shortcuts (Alt+Shift+± to split) |
 | Vault at `~/<systemName>/`, Obsidian opens it directly | Vault in WSL home; Windows Obsidian opens `\\wsl.localhost\Ubuntu\home\<user>\<systemName>` |
 | `.zshrc` aliases | `.bashrc` aliases (Ubuntu default shell) |
+| **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. Copy it across: `mkdir -p ~/.config/gws && cp /mnt/c/Users/<WindowsUser>/Downloads/client_secret_*.json ~/.config/gws/client_secret.json`. Same `~/.config/gws/` troubleshooting and "add yourself as a test user" rules from SETUP.md apply. |
 | Wispr Flow dictation | Win+H dictation |
 | iMessage self-text capture skill | Not available on Windows — skip or substitute |
 
 Everything else (skills, hooks, vault template, rituals, Google Workspace CLI, task system, claude-hud)
-ports directly because it lives inside the Linux shell.
+ports directly because it lives inside the Linux shell. The **one** exception is the Google OAuth
+`client_secret.json`: the browser downloads it on the Windows side, so it must be copied into WSL
+(see the Section 12 row above) — otherwise `gws auth login` won't find it.
 
 ---
 
