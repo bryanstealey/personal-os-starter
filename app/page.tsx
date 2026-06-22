@@ -635,6 +635,35 @@ function NamingStep({
   );
 }
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        // Inside a clickable <label>; prevent toggling the checkbox.
+        e.preventDefault();
+        e.stopPropagation();
+        navigator.clipboard?.writeText(text).then(
+          () => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          },
+          () => {},
+        );
+      }}
+      aria-label={copied ? "Copied to clipboard" : "Copy command"}
+      className={`shrink-0 inline-flex items-center gap-1 px-2.5 rounded text-xs font-medium transition-colors ${
+        copied
+          ? "bg-[#16A34A] text-white"
+          : "bg-[#334155] text-[#FAFAFA] hover:bg-[#475569]"
+      }`}
+    >
+      {copied ? "Copied ✓" : "Copy"}
+    </button>
+  );
+}
+
 function PreflightStep({
   config,
   setConfig,
@@ -653,6 +682,7 @@ function PreflightStep({
       key: "ghostty" as const,
       name: "Ghostty",
       install: "brew install --cask ghostty",
+      copyable: true,
       link: "https://ghostty.org",
       desc: "A fast, modern terminal with split panes. This is where you'll interact with Claude Code across multiple projects simultaneously.",
     },
@@ -660,6 +690,7 @@ function PreflightStep({
       key: "obsidian" as const,
       name: "Obsidian",
       install: "brew install --cask obsidian",
+      copyable: true,
       link: "https://obsidian.md",
       desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
     },
@@ -667,6 +698,7 @@ function PreflightStep({
       key: "node" as const,
       name: "Node.js",
       install: "brew install node",
+      copyable: true,
       link: "https://nodejs.org",
       desc: "The runtime Claude Code is built on. Claude Code won't install without it, so this goes first.",
     },
@@ -674,6 +706,7 @@ function PreflightStep({
       key: "claudeCode" as const,
       name: "Claude Code",
       install: "npm install -g @anthropic-ai/claude-code",
+      copyable: true,
       link: "https://docs.anthropic.com/en/docs/claude-code",
       desc: "Your AI partner. After installing, run 'claude' once in any terminal to authenticate with your Anthropic account.",
     },
@@ -684,6 +717,7 @@ function PreflightStep({
       key: "windowsTerminal" as const,
       name: "Windows Terminal",
       install: "Pre-installed on Windows 11 — open the Microsoft Store to update or to install it on Windows 10.",
+      copyable: false,
       link: "https://learn.microsoft.com/en-us/windows/terminal/install",
       desc: "Your terminal. It's the modern Windows terminal with tabs and split panes — this is where you'll run Claude Code.",
     },
@@ -691,6 +725,7 @@ function PreflightStep({
       key: "wsl" as const,
       name: "WSL2 + Ubuntu",
       install: "wsl --install",
+      copyable: true,
       link: "https://learn.microsoft.com/en-us/windows/wsl/install",
       desc: "Linux running inside Windows. Open Windows Terminal, run the command above as administrator, then restart. This keeps your system behaving like a Mac under the hood. (Your installer will help with this.)",
     },
@@ -698,6 +733,7 @@ function PreflightStep({
       key: "obsidian" as const,
       name: "Obsidian",
       install: "Download the Windows installer from obsidian.md",
+      copyable: false,
       link: "https://obsidian.md",
       desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
     },
@@ -706,6 +742,7 @@ function PreflightStep({
       name: "Node.js (via nvm)",
       install:
         "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && source ~/.bashrc && nvm install --lts",
+      copyable: true,
       link: "https://github.com/nvm-sh/nvm",
       desc: "Run this inside Ubuntu (WSL). nvm installs Node into your home directory, which sidesteps the permission errors a system-wide install hits. Claude Code needs Node, so this goes first.",
     },
@@ -713,6 +750,7 @@ function PreflightStep({
       key: "claudeCode" as const,
       name: "Claude Code",
       install: "npm install -g @anthropic-ai/claude-code",
+      copyable: true,
       link: "https://docs.anthropic.com/en/docs/claude-code",
       desc: "Your AI partner. Install this inside Ubuntu (WSL), then run 'claude' once to authenticate with your Anthropic account.",
     },
@@ -772,9 +810,12 @@ function PreflightStep({
                 </a>
               </div>
               <p className="text-[#475569] text-sm mt-1">{item.desc}</p>
-              <code className="inline-block mt-2 bg-[#1E293B] text-[#FAFAFA] text-xs px-3 py-1.5 rounded font-mono">
-                {item.install}
-              </code>
+              <div className="mt-2 flex items-stretch gap-2">
+                <code className="flex-1 min-w-0 bg-[#1E293B] text-[#FAFAFA] text-xs px-3 py-1.5 rounded font-mono break-all flex items-center">
+                  {item.install}
+                </code>
+                {item.copyable && <CopyButton text={item.install} />}
+              </div>
             </div>
           </label>
         ))}
