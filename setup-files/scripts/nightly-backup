@@ -1,17 +1,46 @@
 #!/bin/bash
-# Nightly backup: commit and push dirty files across all projects
-# Runs via cron at 11:30 PM. Logs to ~/[VAULT]/05-system/processing-logs/nightly-backup.log
+# Nightly backup: commit and push dirty git repos.
 #
-# Configuration:
-#   PROJECT_DIRS — space-separated list of directories to scan (default: ~/projects/)
-#   VAULT_DIR — path to your vault (default: ~/cortex/)
-#   SKIP_LIST — array of repo names to skip (read-only clones, repos you don't own)
+# Preferred scheduler on macOS is a launchd LaunchAgent (see the plist that
+# SETUP.md installs at ~/Library/LaunchAgents). cron on macOS runs without
+# your login environment and without Full Disk Access, so brew-installed git
+# and gh are often invisible and pushes silently fail. launchd inherits a
+# usable environment and is the supported path. (cron still works if you add
+# a crontab entry, but you must grant cron Full Disk Access yourself.)
+#
+# Default scope is VAULT-ONLY. Backing up your other projects is opt-in:
+# set BACKUP_PROJECTS=1 (and optionally PROJECT_DIRS) to also scan them.
+#
+# Configuration (env vars):
+#   VAULT_DIR        — path to your vault. REQUIRED. No default; the script
+#                      exits if it is unset so a typo never logs to a phantom
+#                      path and silently backs up nothing.
+#   BACKUP_PROJECTS  — set to 1 to also back up project repos (default: off).
+#   PROJECT_DIRS     — space-separated dirs to scan when BACKUP_PROJECTS=1
+#                      (default: ~/projects/).
+#   SKIP_LIST        — array of repo names to skip (read-only clones, etc.).
 
-export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+# Apple Silicon brew lives in /opt/homebrew/bin; Intel brew in /usr/local/bin.
+# Include both so git/gh resolve under launchd/cron's minimal PATH.
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# Configurable paths — edit these for your setup
-PROJECT_DIRS="${PROJECT_DIRS:-$HOME/projects/}"
-VAULT_DIR="${VAULT_DIR:-$HOME/cortex/}"
+# Heartbeat directory for system-health monitoring.
+HEARTBEAT_DIR="$HOME/.{{systemName}}-health"
+mkdir -p "$HEARTBEAT_DIR"
+
+# VAULT_DIR is required — no author-specific default.
+VAULT_DIR="${VAULT_DIR:-}"
+if [ -z "$VAULT_DIR" ]; then
+  echo "ERROR: VAULT_DIR is not set. Set it in the LaunchAgent/crontab environment." >&2
+  echo "$(date '+%Y-%m-%d %H:%M:%S') nightly-backup: VAULT_DIR not set" > "$HEARTBEAT_DIR/nightly-backup.error"
+  exit 1
+fi
+# Normalize to a trailing slash so path joins below stay consistent.
+case "$VAULT_DIR" in
+  */) ;;
+  *) VAULT_DIR="$VAULT_DIR/" ;;
+esac
+
 LOG="${VAULT_DIR}05-system/processing-logs/nightly-backup.log"
 DATE=$(date +%Y-%m-%d)
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
@@ -21,6 +50,16 @@ mkdir -p "$(dirname "$LOG")"
 
 echo "[$TIMESTAMP] Nightly backup starting" >> "$LOG"
 
+# Build the list of directories to back up. Vault first, always.
+BACKUP_DIRS=("${VAULT_DIR}")
+if [ "${BACKUP_PROJECTS:-0}" = "1" ]; then
+  PROJECT_DIRS="${PROJECT_DIRS:-$HOME/projects/}"
+  for pdir in ${PROJECT_DIRS}*/; do
+    [ -d "$pdir" ] && BACKUP_DIRS+=("$pdir")
+  done
+  echo "[$TIMESTAMP] BACKUP_PROJECTS=1: also scanning $PROJECT_DIRS" >> "$LOG"
+fi
+
 # Repos to skip — read-only clones or repos you don't own
 SKIP_LIST=(
   # Add repo names here, e.g.:
@@ -29,10 +68,15 @@ SKIP_LIST=(
 
 backed_up=0
 skipped=0
+vault_has_remote=0
 
-for dir in ${PROJECT_DIRS}*/ "${VAULT_DIR}"; do
+for dir in "${BACKUP_DIRS[@]}"; do
   [ -d "$dir/.git" ] || continue
   name=$(basename "$dir")
+
+  # Is this the vault? (used for missing-remote heartbeat reporting)
+  is_vault=0
+  [ "$dir" = "${VAULT_DIR}" ] && is_vault=1
 
   # Skip if in the explicit skip list
   if [[ " ${SKIP_LIST[*]} " == *" $name "* ]]; then
@@ -47,6 +91,8 @@ for dir in ${PROJECT_DIRS}*/ "${VAULT_DIR}"; do
     skipped=$((skipped + 1))
     continue
   fi
+
+  [ "$is_vault" -eq 1 ] && vault_has_remote=1
 
   # Resolve the actual branch name
   branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null)
@@ -89,6 +135,15 @@ done
 
 echo "[$TIMESTAMP] Nightly backup complete: $backed_up backed up, $skipped skipped (clean or no remote)" >> "$LOG"
 
-# Heartbeat for health monitoring
-mkdir -p "$HOME/.cortex-health"
-date +%s > "$HOME/.cortex-health/nightly-backup"
+# Missing-remote detection: if the vault itself has no origin, the backup is
+# doing nothing useful. Surface that to system-health instead of failing
+# silently. We mark the component STALE by NOT writing a fresh success
+# heartbeat, and we drop an .error file describing the problem.
+if [ "$vault_has_remote" -eq 0 ]; then
+  echo "[$TIMESTAMP] WARNING: vault has no git remote — nothing was pushed offsite" >> "$LOG"
+  echo "$TIMESTAMP nightly-backup: vault ($VAULT_DIR) has no git 'origin' remote; offsite backup is not happening. Add a remote (GitHub opt-in) or rely on Obsidian Git + Time Machine." > "$HEARTBEAT_DIR/nightly-backup.error"
+else
+  # All good — clear any prior error and write the success heartbeat.
+  rm -f "$HEARTBEAT_DIR/nightly-backup.error"
+  date +%s > "$HEARTBEAT_DIR/nightly-backup"
+fi

@@ -13,6 +13,13 @@
 # False-positive control: before matching, we strip heredoc bodies and
 # quoted-string content from the command.
 
+# jq is required for parsing the hook's JSON input. If it's missing, fail open
+# (let the install proceed) rather than silently blocking or mangling it.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "npm-install-guard hook: jq not found on PATH — skipping supply-chain checklist. Install jq (brew install jq) to enable this hook." >&2
+  exit 0
+fi
+
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 [[ "$TOOL_NAME" != "Bash" ]] && exit 0

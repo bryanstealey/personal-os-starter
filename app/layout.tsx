@@ -15,7 +15,7 @@ const jetbrains = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Personal OS Setup — Morgantown AI",
   description:
-    "Build your personal operating system with Obsidian, Claude Code, and Ghostty.",
+    "Build your personal operating system with Obsidian, Claude Code, and your terminal.",
 };
 
 export default function RootLayout({

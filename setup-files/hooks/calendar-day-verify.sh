@@ -5,6 +5,13 @@
 # is appended. Forces Claude to acknowledge the day of week before every calendar
 # write — prevents the "Monday April 21 (actually Tuesday)" class of error.
 
+# jq is required for parsing the hook's JSON input. If it's missing, fail open
+# (let the tool call proceed) rather than silently mangling the command.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "calendar-day-verify hook: jq not found on PATH — skipping calendar verification. Install jq (brew install jq) to enable this hook." >&2
+  exit 0
+fi
+
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 

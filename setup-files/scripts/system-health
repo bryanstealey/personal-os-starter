@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
 # System Health Check
-# Reads heartbeat files from ~/.cortex-health/ and reports stale components.
-# Called by the morning ritual as its first step.
+# Reads heartbeat files from ~/.{{systemName}}-health/ and reports stale
+# components. Called by the morning ritual as its first step.
 #
-# Components are configurable — add entries to the COMPONENTS list as
-# automations are set up. The heartbeat directory and component list grow
-# over time; start with just nightly-backup.
+# Only components that actually write a heartbeat are listed here. As you
+# wire up more automations, add a line to COMPONENTS — and make sure that
+# automation writes `date +%s > "$HEARTBEAT_DIR/<name>"` when it succeeds.
+# A component with no writer would report STALE forever and erode trust in
+# the health check, so don't add one until its writer exists.
 #
 # Portable bash (works on Ubuntu/WSL bash 5 and macOS bash 3.2). No
 # associative arrays so it runs everywhere the kit installs.
 
-HEARTBEAT_DIR="$HOME/.cortex-health"
+HEARTBEAT_DIR="$HOME/.{{systemName}}-health"
 NOW=$(date +%s)
 ISSUES=()
 
 # Components: "name max_age_hours", one per line.
-# Add new components here as automations are wired up.
+#   nightly-backup — written by ~/.local/bin/nightly-backup after each run
+#   morning        — written by the /morning ritual at completion
+#   shutdown       — written by the /shutdown ritual at completion
+# /midday and /weekly ship as stubs in this kit and write no heartbeat yet,
+# so they are intentionally absent. Add them here once those rituals exist
+# and write their own heartbeat.
 COMPONENTS="
 nightly-backup 26
+morning 36
 shutdown 48
-midday 30
-weekly 192
 "
 
 COMPONENT_COUNT=0
@@ -29,6 +35,14 @@ while read -r name max_hours; do
     COMPONENT_COUNT=$((COMPONENT_COUNT + 1))
     max_seconds=$((max_hours * 3600))
     hb_file="$HEARTBEAT_DIR/$name"
+    err_file="$HEARTBEAT_DIR/$name.error"
+
+    # A component that ran but hit a problem writes an "<name>.error" file
+    # (e.g. nightly-backup when the vault has no git remote). Surface it.
+    if [ -f "$err_file" ]; then
+        ISSUES+=("$name: ERROR ($(cat "$err_file"))")
+        continue
+    fi
 
     if [ ! -f "$hb_file" ]; then
         ISSUES+=("$name: NO HEARTBEAT (never ran or not yet wired)")

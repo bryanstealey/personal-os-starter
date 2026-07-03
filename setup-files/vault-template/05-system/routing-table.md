@@ -26,9 +26,17 @@ Each automated component and its monitoring binding. All components must have a 
 
 | Component | Cadence | Heartbeat Location | Sanity Check | Last Known Failure |
 |---|---|---|---|---|
-| Nightly backup | Nightly | `~/.cortex-health/nightly-backup` | No "FAILED" in recent log entries | — |
+| Nightly backup | Nightly | `$HOME/.{{systemName}}-health/nightly-backup` | No "FAILED" in recent log entries | — |
 
 *Add components here as automations are set up.*
+
+## Canonical People Index
+
+`05-system/name-registry.jsonl` is the canonical index of known people. When the
+assistant populates the vault or routes an input that mentions a person, it consults
+this file first to recognize who someone is before treating them as new. The file
+ships empty and grows as you add people to the system. Each line is a JSON object
+(one person per line).
 
 ## How to Use This Table
 

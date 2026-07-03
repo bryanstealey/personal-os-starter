@@ -12,10 +12,16 @@ Usage:
     calendar-agenda --days 14
 
 Configuration:
-    Set CALENDAR_ACCOUNTS as a JSON string in your environment, e.g.:
-    export CALENDAR_ACCOUNTS='[["gws", "you@gmail.com"], ["gws-work", "you@company.com"]]'
+    Set CALENDAR_ACCOUNTS as a JSON string in your environment. Each entry is
+    [gws_command, account_email] — the gws_command is the wrapper that selects
+    that account's config dir (plain `gws` for your primary, `gws-work` etc.
+    for additional accounts). Example:
 
-    Or edit the ACCOUNTS list below directly.
+        export CALENDAR_ACCOUNTS='[["gws", "you@gmail.com"], ["gws-work", "you@company.com"]]'
+
+    This is the only way to configure accounts — there is no in-script list to
+    edit. If CALENDAR_ACCOUNTS is unset or empty, the wrapper reports that the
+    calendar integration is not configured (distinct from an empty calendar).
 """
 import argparse
 import json
@@ -24,19 +30,32 @@ import subprocess
 import sys
 from datetime import datetime, timedelta
 
-# Default accounts — edit these or use CALENDAR_ACCOUNTS env var
-DEFAULT_ACCOUNTS = [
-    ("gws", "primary@gmail.com"),
-]
+# Sentinel printed when no accounts are configured, so callers (and the
+# morning ritual) can tell "not set up" apart from "no events today".
+NOT_CONFIGURED_MSG = (
+    "(calendar integration not configured — set CALENDAR_ACCOUNTS, e.g. "
+    "export CALENDAR_ACCOUNTS='[[\"gws\", \"you@gmail.com\"]]')"
+)
+
 
 def get_accounts():
+    """Return configured accounts from CALENDAR_ACCOUNTS, or [] if unset/invalid."""
     env_accounts = os.environ.get("CALENDAR_ACCOUNTS")
-    if env_accounts:
-        try:
-            return [tuple(a) for a in json.loads(env_accounts)]
-        except (json.JSONDecodeError, TypeError):
-            pass
-    return DEFAULT_ACCOUNTS
+    if not env_accounts:
+        return []
+    try:
+        parsed = json.loads(env_accounts)
+    except (json.JSONDecodeError, TypeError):
+        print(
+            "WARN: CALENDAR_ACCOUNTS is set but is not valid JSON; ignoring it.",
+            file=sys.stderr,
+        )
+        return []
+    accounts = []
+    for a in parsed:
+        if isinstance(a, (list, tuple)) and len(a) == 2:
+            accounts.append((a[0], a[1]))
+    return accounts
 
 # Collect self-emails from accounts for declined-event detection
 def get_self_emails(accounts):
@@ -159,6 +178,15 @@ def render_table(events):
 def main():
     args = parse_args()
     accounts = get_accounts()
+    if not accounts:
+        # Distinct from "(no events)": the integration was never set up.
+        if args.format == "json":
+            json.dump({"error": "not_configured", "message": NOT_CONFIGURED_MSG},
+                      sys.stdout, indent=2)
+            print()
+        else:
+            print(NOT_CONFIGURED_MSG)
+        sys.exit(2)
     self_emails = get_self_emails(accounts)
     t_min, t_max = time_range(args)
     events = []

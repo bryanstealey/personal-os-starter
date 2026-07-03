@@ -1,6 +1,7 @@
 {
-  "currentStep": 0,
-  "completedSteps": [],
+  "kitVersion": "0.1.0-test",
+  "currentSection": null,
+  "completedSections": [],
   "startedAt": null,
   "lastUpdated": null
 }

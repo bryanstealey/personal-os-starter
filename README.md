@@ -1,36 +1,11 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal OS Starter
 
-## Getting Started
+A starter kit for building a personal operating system: an Obsidian vault for your life's context, Claude Code as the AI partner that reads and acts on it, and two daily rituals that keep it current. (Test build — `KIT_VERSION 0.1.0-test`. Mac-supported; the Windows path is beta and unvalidated.)
 
-First, run the development server:
+**Start here:**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Run the setup web app (`npm run dev`, then open http://localhost:3000) and answer the questions. It downloads a `user-config.json`.
+2. Clone this installer to its own folder and drop the config in: `git clone <repo> ~/personal-os-installer && mv ~/Downloads/user-config.json ~/personal-os-installer/config/`
+3. Start your assistant from the installer: `cd ~/personal-os-installer && claude`. It reads your config, builds your vault fresh at `~/<your-system-name>`, connects your tools, and runs your first ritual with you.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`SETUP.md` is the script your assistant follows — it's written for Claude, not for you to read top to bottom.

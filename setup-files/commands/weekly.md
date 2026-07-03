@@ -1,89 +1,39 @@
-You are running {{USER_NAME}}'s weekly review — the anchor ritual that sets priorities for the coming week. This is the most important ritual in the system. The daily rituals execute; the weekly review decides WHAT to execute.
+# /weekly — ADD LATER (stub, not an active ritual)
 
-Target: 20-30 minutes, ideally Friday afternoon or Sunday evening.
+> **This ritual ships disabled in the starter kit.** The v1 kit ships only two
+> active rituals — `/morning` and `/shutdown`. Weekly is a stub you can flesh
+> out once the daily loop is steady.
 
-## Steps
+## Why it's not shipped yet
 
-### Section 1: Bucket Audit (you pre-populate)
-Read every bucket manifest file in `01-buckets/`. Present a summary organized by the user's life areas:
+The weekly review is the highest-leverage ritual in a mature system — it's where
+you decide WHAT to execute, not just execute. But it only pays off once you have
+a few weeks of daily notes to review. Get the morning/shutdown bookends running
+first; the weekly review has something to chew on after that.
 
-{{BUCKET_CATEGORIES}}
+## What weekly is for (when you add it)
 
-Flag any bucket where `status` seems wrong (e.g., marked active but nothing happened in 2+ weeks).
+A once-a-week anchor (Friday afternoon or Sunday evening) that sets priorities
+for the coming week:
 
-### Section 2: Commitment Integrity (you pre-populate)
-Scan for promises, deadlines, and follow-ups. Check these sources:
-- Daily logs in `05-system/daily/` from this week — what was planned each morning?
-- "Next Steps" and "Active Threads" sections in each bucket manifest
-- Calendar for the coming week via `{{CALENDAR_COMMAND}} --week`
-- Any follow-ups mentioned but not completed
+- **Bucket audit** — read every manifest in `01-buckets/`, flag wrong statuses.
+- **Commitment integrity** — what was promised this week vs. what happened, from
+  daily logs in `05-system/daily/` and bucket "Next Steps".
+- **System health review** — run `system-health`, note recurring failures.
+- **The focusing question** — "What is the ONE thing you can do next week such
+  that by doing it, everything else becomes easier or unnecessary?"
+- **Calendar design** — protect deep-work blocks for the week ahead
+  (`{{CALENDAR_COMMAND}} --week`).
+- **Capture sweep** — anything in your head not yet in the system.
 
-Present: What was promised this week? What actually happened? What's aging?
+## How to turn it on
 
-### Section 3: System Health Review (you pre-populate)
-Run `system-health` and review the week's heartbeat history. Present:
-- **Current state:** which automations are green, which are stale?
-- **Recurring failures:** any automation that failed 2+ times this week?
+1. Replace this stub with a real ritual prompt (sections pre-populated by the
+   assistant, focusing question + calendar design completed by you).
+2. Have it write a heartbeat at completion:
+   `date +%s > "$HOME/.{{systemName}}-health/weekly"`.
+3. Add a `weekly` entry to the `system-health` component list so staleness
+   surfaces (and let `/morning` nudge when it goes stale).
+4. Save each review to `05-system/weekly-reviews/weekly-review-YYYY-MM-DD.md`.
 
-### Section 4: The Focusing Question ({{USER_NAME}} completes)
-Ask: **"What is the ONE thing you can do next week such that by doing it, everything else becomes easier or unnecessary?"**
-
-Also ask for 2-3 "must-moves" — non-negotiable items for next week.
-
-### Section 5: Calendar Design ({{USER_NAME}} completes)
-Run `{{CALENDAR_COMMAND}} --week` for next week. Ask:
-- "Are your deep-work blocks protected next week?"
-- "Does your calendar reflect your stated priorities?"
-- Suggest batching if you see fragmented scheduling
-
-### Section 6: Capture Sweep ({{USER_NAME}} completes)
-Ask: "Anything in your head that's not in the system? Ideas, worries, to-dos, people to contact?"
-
-Capture anything shared directly into the relevant bucket or `00-inbox/`.
-
-### Section 7: Toolbox Reminder (you present)
-Run `claude plugin list` and check which MCP servers, plugins, and skills are available. Present a quick "Your Toolbox" section — one line per tool. The goal is habit formation — remind about installed capabilities that might be underused.
-
-## After the Review
-- Update any bucket manifest files that need status changes
-- **Write the weekly heartbeat — unskippable, silent:**
-  ```bash
-  date +%s > ~/.cortex-health/weekly
-  ```
-- Save the completed review to `05-system/weekly-reviews/weekly-review-YYYY-MM-DD.md`:
-
-```markdown
-# Weekly Review — Week of [DATE]
-
-## Key Decision This Week
-[2-3 sentences summarizing the main decision/shift]
-
-## Bucket Audit Summary
-[Summary by life area]
-
-## Commitment Check
-[What was promised, what happened, what's aging]
-
-## System Health
-[Which automations green/stale]
-
-## {{USER_NAME}}'s Focusing Answer
-[Their answer to the ONE thing question]
-
-## Must-Moves for Next Week
-[2-3 non-negotiable items]
-
-## Calendar Design Notes
-[Deep work blocks, batching decisions]
-
-## Captured Items
-[Anything from the sweep]
-```
-
-## Tools
-- **Google Calendar:** `{{CALENDAR_COMMAND}} [--today|--tomorrow|--week|--days N]`
-
-## Tone
-- Strategic, not tactical
-- Forward-looking — this is about next week, not rehashing the past
-- Encouraging about what got done
+Until you do that, leave this file as-is. It is intentionally inert.

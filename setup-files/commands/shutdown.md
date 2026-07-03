@@ -59,7 +59,7 @@ Hold task IDs and names in context. Do not show the raw list.
 
    **Write the shutdown heartbeat NOW — unskippable, silent.**
    ```bash
-   date +%s > ~/.cortex-health/shutdown
+   date +%s > "$HOME/.{{systemName}}-health/shutdown"
    ```
 
    The first-task commitment is non-negotiable — shutdown doesn't complete until tomorrow has a committed first task.
@@ -82,7 +82,7 @@ Hold task IDs and names in context. Do not show the raw list.
 
 10. **Re-write the shutdown heartbeat — idempotent backstop, silent.**
     ```bash
-    date +%s > ~/.cortex-health/shutdown
+    date +%s > "$HOME/.{{systemName}}-health/shutdown"
     ```
 
 ## Critical Rule

@@ -3,21 +3,33 @@
 import { useState, useCallback } from "react";
 import Image from "next/image";
 
+// Stamped into the generated config so each tester's build is identifiable
+// (pending a real update channel — fixes are hand-delivered for now).
+const KIT_VERSION = "0.1.0-test";
+
 interface UserConfig {
+  kitVersion: string;
+  // ISO timestamp stamped when the user first starts the wizard. The installer
+  // seeds setup-state.json from this; a non-null value means "resume," not "fresh."
+  startedAt: string | null;
   platform: "mac" | "pc" | null;
   systemName: string;
   preflight: {
+    ownTerminal: boolean;
     ghostty: boolean;
     windowsTerminal: boolean;
     wsl: boolean;
     obsidian: boolean;
     node: boolean;
     claudeCode: boolean;
-    zoxide: boolean;
   };
+  // Terminal is optional — users may keep the terminal they already use.
+  useOwnTerminal: boolean;
   permissionMode: "auto" | "restrictive" | "permissive";
   terminalTheme: "light" | "dark";
-  googleAccounts: { email: string; label: string }[];
+  // "personal" = consumer @gmail.com; "workspace" = corporate Google Workspace
+  // (may be admin-locked — SETUP branches on this).
+  googleAccounts: { email: string; label: string; accountType: "personal" | "workspace" }[];
   businessPersonalSplit: boolean;
   taskSystem: "google-tasks" | "todoist" | "other";
   taskSystemOther?: string;
@@ -29,20 +41,23 @@ interface UserConfig {
 }
 
 const DEFAULT_CONFIG: UserConfig = {
+  kitVersion: KIT_VERSION,
+  startedAt: null,
   platform: null,
   systemName: "",
   preflight: {
+    ownTerminal: false,
     ghostty: false,
     windowsTerminal: false,
     wsl: false,
     obsidian: false,
     node: false,
     claudeCode: false,
-    zoxide: false,
   },
+  useOwnTerminal: false,
   permissionMode: "auto",
   terminalTheme: "light",
-  googleAccounts: [{ email: "", label: "Primary" }],
+  googleAccounts: [{ email: "", label: "Primary", accountType: "personal" }],
   businessPersonalSplit: false,
   taskSystem: "google-tasks",
   optionalSkills: {},
@@ -105,45 +120,18 @@ const CONTEXT_SOURCES = [
 
 const OPTIONAL_SKILLS = [
   {
-    id: "check-anthropic",
-    name: "Anthropic Update Monitor",
-    description:
-      "Scans Claude Code releases and Anthropic blog posts for changes that affect your setup. Bryan runs this weekly to catch new features, behavior changes, and breaking updates before they surprise him.",
-    invokeType: "user" as const,
-  },
-  {
-    id: "dev-browser",
-    name: "Dev Browser",
-    description:
-      "Browser automation for testing web apps, taking screenshots, filling forms, and scraping data — all from Claude Code. Useful if you build or test anything that runs in a browser.",
-    invokeType: "system" as const,
-  },
-  {
     id: "x-reader",
     name: "X/Twitter Reader",
     description:
-      "Extracts full content from tweets — resolves shortened links, gets full text, engagement stats, and media. Bryan uses X as a primary information capture channel, bookmarking things throughout the day.",
+      "Extracts full content from tweets — resolves shortened links, gets full text, engagement stats, and media. Useful if you save things on X throughout the day and want your system to read them.",
     invokeType: "system" as const,
-  },
-  {
-    id: "field-notes",
-    name: "Field Notes Digest",
-    description:
-      "Transforms saved bookmarks into a themed visual intelligence briefing. Bryan built this to turn his X bookmarks into a weekly digest he shares with his son Julian. If you have a similar save-and-review pattern with any platform, this concept could adapt to your workflow.",
-    invokeType: "user" as const,
-  },
-  {
-    id: "claude-youtube",
-    name: "YouTube Creator Toolkit",
-    description:
-      "Full YouTube workflow — channel audits, SEO, retention-optimized scripts, thumbnail briefs, content calendars, analytics, monetization planning. Only useful if you create YouTube content.",
-    invokeType: "user" as const,
   },
   {
     id: "imessage-capture",
     name: "iMessage Self-Text Capture",
     description:
-      "Monitors your iMessage for self-texts and routes them into your Obsidian vault's brain dump. Bryan texts himself ideas, tasks, and reminders throughout the day — this captures them automatically so nothing is lost. Requires macOS with iMessage.",
+      "Monitors your iMessage for self-texts and routes them into your vault's brain dump, so the ideas and reminders you fire off to yourself never get lost.",
+    note: "Requires macOS, and you'll need to grant your terminal Full Disk Access in System Settings → Privacy & Security so it can read the Messages database. Setup will walk you through it.",
     invokeType: "system" as const,
   },
 ];
@@ -257,9 +245,10 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
 
       <div className="text-left space-y-4 mb-8 w-full">
         <p className="text-[#475569] text-lg leading-relaxed">
-          You&apos;re about to set up a personal operating system &mdash; a knowledge
-          graph backed by an AI partner that understands your full life context.
-          It runs on three tools:
+          A personal operating system is a single place that holds the context of
+          your life &mdash; the people, projects, money, and decisions you carry
+          around in your head &mdash; paired with an AI partner that can actually
+          read it and act on it. It runs on three tools:
         </p>
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -277,10 +266,21 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           ))}
         </div>
         <p className="text-[#475569] leading-relaxed">
-          This setup will walk you through everything &mdash; from installing the
-          tools to configuring your first rituals. By the end, you&apos;ll have a
-          working system and the experience of using it.
+          <strong className="text-[#1A1A1A]">By the end of setup</strong> you&apos;ll
+          have a working vault seeded with your real context, an assistant that
+          knows who you are and what you&apos;re working on, and two daily
+          rituals &mdash; a morning launchpad and an evening shutdown &mdash; that
+          you&apos;ll have already run once.
         </p>
+        <div className="bg-[#DCFCE7]/50 border border-[#16A34A]/20 rounded-xl p-4">
+          <p className="text-[#475569] leading-relaxed text-[15px]">
+            <strong className="text-[#16A34A]">It compounds.</strong> Every note
+            you capture, every project you add, every decision you log makes the
+            system &mdash; and your assistant &mdash; a little sharper. A week in
+            it&apos;s useful. A month in it&apos;s the first thing you open every
+            day.
+          </p>
+        </div>
       </div>
 
       <button
@@ -289,6 +289,253 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       >
         Let&apos;s build it
       </button>
+    </div>
+  );
+}
+
+function ConceptStep({
+  onNext,
+  onBack,
+}: {
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const [panel, setPanel] = useState(0);
+
+  const panels: {
+    eyebrow: string;
+    title: string;
+    body: React.ReactNode;
+  }[] = [
+    {
+      eyebrow: "The idea",
+      title: "Four parts, working together",
+      body: (
+        <div className="space-y-4">
+          <p className="text-[#475569] leading-relaxed">
+            Your personal OS isn&apos;t one app. It&apos;s four pieces that reinforce
+            each other:
+          </p>
+          <div className="space-y-3">
+            {[
+              {
+                name: "The vault",
+                desc: "An Obsidian folder of plain markdown files — one per person, project, and life area. It's just text, so it's yours forever and nothing can lock you out.",
+              },
+              {
+                name: "The assistant",
+                desc: "Claude Code, running with full read access to the vault. It doesn't guess about your life — it looks things up before it answers.",
+              },
+              {
+                name: "Projects",
+                desc: "Focused workspaces for the things you're actively pushing forward. Each one links back to a life area in the vault.",
+              },
+              {
+                name: "Rituals",
+                desc: "Short, repeatable sessions — a morning launchpad and an evening shutdown — that keep the system current without effort.",
+              },
+            ].map((part) => (
+              <div
+                key={part.name}
+                className="bg-[#F1F5F9] rounded-xl p-4 flex gap-3"
+              >
+                <div className="w-1.5 rounded-full bg-[#16A34A] shrink-0" />
+                <div>
+                  <p className="font-semibold text-sm">{part.name}</p>
+                  <p className="text-[#475569] text-sm mt-0.5 leading-relaxed">
+                    {part.desc}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+    },
+    {
+      eyebrow: "Projects",
+      title: "Not just work projects",
+      body: (
+        <div className="space-y-4">
+          <p className="text-[#475569] leading-relaxed">
+            A project is anything you&apos;re actively moving forward that benefits
+            from its own context. That&apos;s broader than it sounds:
+          </p>
+          <div className="grid grid-cols-1 gap-3">
+            {[
+              {
+                label: "Work",
+                example: "A client engagement, a product launch, a quarterly goal.",
+              },
+              {
+                label: "Personal",
+                example: "Planning a trip, a home renovation, learning to cook.",
+              },
+              {
+                label: "Off the computer",
+                example:
+                  "Training for a race, a garden, helping a parent with their finances. The work happens in the real world — the system holds the plan, the notes, and the next step.",
+              },
+            ].map((p) => (
+              <div key={p.label} className="border border-[#E2E8F0] rounded-xl p-4">
+                <p className="font-semibold text-sm text-[#16A34A]">{p.label}</p>
+                <p className="text-[#475569] text-sm mt-1 leading-relaxed">
+                  {p.example}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[#475569] leading-relaxed">
+            Projects <strong className="text-[#1A1A1A]">compound</strong>: as each
+            one accumulates notes and decisions, your assistant gets better at
+            helping with it — and at seeing the connections between them.
+          </p>
+        </div>
+      ),
+    },
+    {
+      eyebrow: "The rhythm",
+      title: "Bookending your day and your sessions",
+      body: (
+        <div className="space-y-4">
+          <p className="text-[#475569] leading-relaxed">
+            The system stays alive through small, repeatable bookends. There are
+            two layers:
+          </p>
+          <div className="space-y-3">
+            <div className="bg-[#F1F5F9] rounded-xl p-4">
+              <p className="font-semibold text-sm">Your day</p>
+              <p className="text-[#475569] text-sm mt-1 leading-relaxed">
+                <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">/morning</code>{" "}
+                orients you and sets a couple of priorities.{" "}
+                <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">/shutdown</code>{" "}
+                closes the loop and captures what happened.
+              </p>
+            </div>
+            <div className="bg-[#F1F5F9] rounded-xl p-4">
+              <p className="font-semibold text-sm">Your work sessions</p>
+              <p className="text-[#475569] text-sm mt-1 leading-relaxed">
+                <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">/letsgo</code>{" "}
+                loads context at the start of a session.{" "}
+                <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">/handoff</code>{" "}
+                writes a clean summary at the end so the next session picks up
+                where you left off.
+              </p>
+            </div>
+          </div>
+          <div className="bg-[#DCFCE7]/50 border border-[#16A34A]/20 rounded-xl p-4">
+            <p className="text-[#475569] text-sm leading-relaxed">
+              <strong className="text-[#16A34A]">Missing one is fine.</strong> Skip
+              a morning, forget a shutdown — the system doesn&apos;t punish you. The
+              bookends are there to help, not to become another thing you owe.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      eyebrow: "A tip before you start",
+      title: "Talk to it — don't type everything",
+      body: (
+        <div className="space-y-4">
+          <p className="text-[#475569] leading-relaxed">
+            The fastest way to feed your system is your voice. Brain-dumping out
+            loud beats typing, especially for messy, half-formed thoughts — which
+            is exactly the kind of context a personal OS thrives on.
+          </p>
+          <p className="text-[#475569] leading-relaxed">
+            Set up dictation now so it&apos;s ready when you start. Two good
+            options:
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <a
+              href="https://wisprflow.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-[#E2E8F0] rounded-xl p-4 hover:border-[#16A34A] transition-colors"
+            >
+              <p className="font-semibold text-sm">
+                Wispr Flow{" "}
+                <span className="text-[#16A34A] text-xs">&nearr;</span>
+              </p>
+              <p className="text-[#475569] text-xs mt-1 leading-relaxed">
+                Polished, low-friction dictation that works system-wide. Paid.
+              </p>
+            </a>
+            <a
+              href="https://github.com/cjpais/FluidVoice"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-[#E2E8F0] rounded-xl p-4 hover:border-[#16A34A] transition-colors"
+            >
+              <p className="font-semibold text-sm">
+                FluidVoice{" "}
+                <span className="text-[#16A34A] text-xs">&nearr;</span>
+              </p>
+              <p className="text-[#475569] text-xs mt-1 leading-relaxed">
+                Free, open-source, local dictation for macOS. Runs on your machine.
+              </p>
+            </a>
+          </div>
+          <p className="text-[#94A3B8] text-sm leading-relaxed">
+            Optional, but the people who lean on dictation get far more out of the
+            system than the people who type.
+          </p>
+        </div>
+      ),
+    },
+  ];
+
+  const isLast = panel === panels.length - 1;
+  const current = panels[panel];
+
+  return (
+    <div className="flex-1 flex flex-col items-center max-w-2xl mx-auto w-full pt-4">
+      <div className="flex gap-1.5 mb-8">
+        {panels.map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              i === panel ? "w-8 bg-[#16A34A]" : "w-1.5 bg-[#E2E8F0]"
+            }`}
+          />
+        ))}
+      </div>
+
+      <div className="w-full flex-1">
+        <p className="text-[#94A3B8] text-sm font-medium tracking-wide uppercase mb-2">
+          {current.eyebrow}
+        </p>
+        <h2 className="text-3xl font-bold tracking-tight mb-6">
+          {current.title}
+        </h2>
+        {current.body}
+      </div>
+
+      <div className="w-full flex items-center justify-between pt-8 mt-8 border-t border-[#E2E8F0]">
+        <button
+          onClick={() => (panel === 0 ? onBack() : setPanel((p) => p - 1))}
+          className="text-[#475569] hover:text-[#1A1A1A] transition-colors text-sm font-medium"
+        >
+          &larr; Back
+        </button>
+        <div className="flex items-center gap-4">
+          {!isLast && (
+            <button
+              onClick={onNext}
+              className="text-[#94A3B8] hover:text-[#475569] transition-colors text-sm font-medium"
+            >
+              Skip intro
+            </button>
+          )}
+          <button
+            onClick={() => (isLast ? onNext() : setPanel((p) => p + 1))}
+            className="bg-[#16A34A] text-white px-8 py-3 rounded-lg font-semibold text-sm hover:bg-[#15803D] transition-colors"
+          >
+            {isLast ? "Start setup" : "Next"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -400,25 +647,25 @@ function PermissionsStep({
   }[] = [
     {
       id: "auto",
-      name: "Auto Mode",
+      name: "Auto",
       recommended: true,
-      desc: "Claude learns your preferences as you go. Asks the first time, remembers your answer, and stops asking for similar actions.",
+      desc: "A balanced starting allow-set, then learn-as-you-go. Reading files, searching the vault, and running safe commands are pre-approved; Claude asks the first time for anything else and remembers your answer.",
       detail:
-        "Most things happen smoothly. Claude only interrupts for genuinely significant operations — deleting files, pushing code, or accessing new services. This is what Bryan uses. It eliminates the fatigue of constant permission prompts while keeping you in control of what matters.",
+        "Most things happen smoothly. Claude only interrupts for genuinely significant operations — deleting files, pushing code, or reaching a new service. It eliminates the fatigue of constant prompts while keeping you in control of what matters. The recommended default for almost everyone.",
     },
     {
       id: "restrictive",
       name: "Restrictive",
-      desc: "Claude asks before almost everything. You approve each action individually.",
+      desc: "A locked allow-set. Only the safest read-only actions are pre-approved; Claude asks before almost everything else, every time.",
       detail:
-        "Maximum control, but you'll see a lot of prompts — especially early on when everything is new. This can lead to approving things you don't fully understand just to keep moving. If you choose this and find it overwhelming, you can switch to Auto Mode later.",
+        "Maximum control, but you'll see a lot of prompts — especially early on when everything is new. This can lead to approving things you don't fully understand just to keep moving. If you choose this and find it overwhelming, you can switch to Auto later.",
     },
     {
       id: "permissive",
       name: "Permissive",
-      desc: "Claude rarely asks. Operations happen without interruption.",
+      desc: "A wide allow-set. File edits, terminal commands, and most tool access run without interruption.",
       detail:
-        "Fast and frictionless, but you're trusting Claude to make good decisions about file changes, terminal commands, and tool access. Best for experienced users who understand what Claude Code does under the hood.",
+        "Fast and frictionless, but you're trusting Claude to make good decisions about file changes, terminal commands, and tool access. Best for experienced users who understand what Claude Code does under the hood. Genuinely destructive operations are still blocked.",
     },
   ];
 
@@ -497,12 +744,21 @@ function TerminalStep({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const terminalName = config.platform === "pc" ? "Windows Terminal" : "Ghostty";
+  const terminalName =
+    config.platform === "pc"
+      ? "Windows Terminal"
+      : config.useOwnTerminal
+        ? "your terminal"
+        : "Ghostty";
+  const subtitle =
+    config.platform !== "pc" && config.useOwnTerminal
+      ? "You're keeping your own terminal, so we won't touch its config. Just tell us whether you lean light or dark — it helps your assistant pick readable colors for anything it generates."
+      : `Pick a color scheme for ${terminalName}. Everything else — pane layout, status indicators — gets configured automatically during setup.`;
   return (
     <StepShell
       step={2}
       title="Terminal theme"
-      subtitle={`Pick a color scheme for ${terminalName}. Everything else — pane layout, status indicators — gets configured automatically during setup.`}
+      subtitle={subtitle}
       onNext={onNext}
       onBack={onBack}
     >
@@ -559,7 +815,7 @@ function TerminalStep({
                 <p className="font-medium text-sm capitalize">{theme}</p>
                 <p className="text-[#94A3B8] text-xs">
                   {theme === "light"
-                    ? "Bryan's choice — high contrast"
+                    ? "High contrast, easy on tired eyes"
                     : "Traditional developer theme"}
                 </p>
               </label>
@@ -605,7 +861,7 @@ function NamingStep({
                   .replace(/[^a-z0-9-]/g, ""),
               })
             }
-            placeholder="e.g., nexus, atlas, cortex, forge"
+            placeholder="e.g., nexus, atlas, beacon, forge"
             className="w-full px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white text-lg font-mono focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A]"
           />
           {config.systemName && (
@@ -677,15 +933,17 @@ function PreflightStep({
 }) {
   const isPc = config.platform === "pc";
 
+  const ghosttyItem = {
+    key: "ghostty" as const,
+    name: "Ghostty",
+    install: "brew install --cask ghostty",
+    copyable: true,
+    link: "https://ghostty.org",
+    desc: "A fast, modern terminal with split panes. This is where you'll interact with Claude Code across multiple projects at once. Recommended if you don't already have a terminal you love.",
+  };
+
   const macItems = [
-    {
-      key: "ghostty" as const,
-      name: "Ghostty",
-      install: "brew install --cask ghostty",
-      copyable: true,
-      link: "https://ghostty.org",
-      desc: "A fast, modern terminal with split panes. This is where you'll interact with Claude Code across multiple projects simultaneously.",
-    },
+    ...(config.useOwnTerminal ? [] : [ghosttyItem]),
     {
       key: "obsidian" as const,
       name: "Obsidian",
@@ -700,15 +958,15 @@ function PreflightStep({
       install: "brew install node",
       copyable: true,
       link: "https://nodejs.org",
-      desc: "The runtime Claude Code is built on. Claude Code won't install without it, so this goes first.",
+      desc: "The runtime your tooling builds on. A few helpers (including the Google Workspace CLI) need it, so this goes early.",
     },
     {
       key: "claudeCode" as const,
       name: "Claude Code",
-      install: "npm install -g @anthropic-ai/claude-code",
+      install: "curl -fsSL https://claude.ai/install.sh | sh",
       copyable: true,
       link: "https://docs.anthropic.com/en/docs/claude-code",
-      desc: "Your AI partner. After installing, run 'claude' once in any terminal to authenticate with your Anthropic account.",
+      desc: "Your AI partner. This is the native installer — it drops the 'claude' binary in ~/.local/bin. After it finishes, run 'claude' once in any terminal to authenticate with your Anthropic account.",
     },
   ];
 
@@ -749,10 +1007,10 @@ function PreflightStep({
     {
       key: "claudeCode" as const,
       name: "Claude Code",
-      install: "npm install -g @anthropic-ai/claude-code",
+      install: "curl -fsSL https://claude.ai/install.sh | sh",
       copyable: true,
       link: "https://docs.anthropic.com/en/docs/claude-code",
-      desc: "Your AI partner. Install this inside Ubuntu (WSL), then run 'claude' once to authenticate with your Anthropic account.",
+      desc: "Your AI partner. Run this native installer inside Ubuntu (WSL), then run 'claude' once to authenticate with your Anthropic account.",
     },
   ];
 
@@ -773,6 +1031,37 @@ function PreflightStep({
       nextDisabled={!allChecked}
       nextLabel="All installed — continue"
     >
+      {!isPc && (
+        <label className="flex items-start gap-3 p-4 mb-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={config.useOwnTerminal}
+            onChange={(e) =>
+              setConfig({
+                ...config,
+                useOwnTerminal: e.target.checked,
+                preflight: {
+                  ...config.preflight,
+                  ownTerminal: e.target.checked,
+                  // Don't let a stale Ghostty check block the now-shorter list.
+                  ghostty: e.target.checked ? false : config.preflight.ghostty,
+                },
+              })
+            }
+            className="mt-1 w-5 h-5 rounded accent-[#16A34A]"
+          />
+          <div>
+            <p className="font-medium text-sm">
+              I already have a terminal I like
+            </p>
+            <p className="text-[#94A3B8] text-sm mt-1 leading-relaxed">
+              Skip Ghostty and use your own (iTerm2, Warp, Terminal.app, etc.).
+              Everything works the same; you&apos;ll just configure split panes
+              and themes your own way.
+            </p>
+          </div>
+        </label>
+      )}
       <div className="space-y-4">
         {items.map((item) => (
           <label
@@ -820,6 +1109,34 @@ function PreflightStep({
           </label>
         ))}
       </div>
+
+      {!isPc && (
+        <div className="mt-5 bg-[#F1F5F9] rounded-xl p-5 space-y-3">
+          <p className="text-sm font-semibold">One more thing for the helpers</p>
+          <p className="text-sm text-[#475569] leading-relaxed">
+            A couple of behind-the-scenes tools need <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">jq</code> (a
+            JSON utility). Install it now so setup doesn&apos;t stall later:
+          </p>
+          <div className="flex items-stretch gap-2">
+            <code className="flex-1 min-w-0 bg-[#1E293B] text-[#FAFAFA] text-xs px-3 py-1.5 rounded font-mono break-all flex items-center">
+              brew install jq
+            </code>
+            <CopyButton text="brew install jq" />
+          </div>
+          <p className="text-sm text-[#475569] leading-relaxed pt-1">
+            The Claude Code installer puts the <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">claude</code> command
+            in <code className="bg-white px-1.5 py-0.5 rounded text-xs font-mono">~/.local/bin</code>. If your terminal says
+            &ldquo;command not found&rdquo; after installing, add that folder to your
+            PATH (your assistant will do this for you in the first setup session):
+          </p>
+          <div className="flex items-stretch gap-2">
+            <code className="flex-1 min-w-0 bg-[#1E293B] text-[#FAFAFA] text-xs px-3 py-1.5 rounded font-mono break-all flex items-center">
+              echo &apos;export PATH=&quot;$HOME/.local/bin:$PATH&quot;&apos; &gt;&gt; ~/.zshrc
+            </code>
+            <CopyButton text={`echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc`} />
+          </div>
+        </div>
+      )}
     </StepShell>
   );
 }
@@ -838,14 +1155,31 @@ function AccountsStep({
   const addAccount = () =>
     setConfig({
       ...config,
-      googleAccounts: [...config.googleAccounts, { email: "", label: "" }],
+      googleAccounts: [
+        ...config.googleAccounts,
+        { email: "", label: "", accountType: "personal" },
+      ],
     });
 
-  const updateAccount = (i: number, field: "email" | "label", val: string) => {
+  const updateAccount = (
+    i: number,
+    field: "email" | "label",
+    val: string,
+  ) => {
     const updated = [...config.googleAccounts];
     updated[i] = { ...updated[i], [field]: val };
     setConfig({ ...config, googleAccounts: updated });
   };
+
+  const updateAccountType = (i: number, val: "personal" | "workspace") => {
+    const updated = [...config.googleAccounts];
+    updated[i] = { ...updated[i], accountType: val };
+    setConfig({ ...config, googleAccounts: updated });
+  };
+
+  const hasWorkspace = config.googleAccounts.some(
+    (a) => a.accountType === "workspace",
+  );
 
   const removeAccount = (i: number) => {
     if (config.googleAccounts.length <= 1) return;
@@ -865,31 +1199,57 @@ function AccountsStep({
       nextDisabled={!config.googleAccounts[0]?.email.includes("@")}
     >
       <div className="space-y-6">
-        <div className="space-y-3">
+        <div className="space-y-4">
           {config.googleAccounts.map((acc, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <input
-                type="email"
-                value={acc.email}
-                onChange={(e) => updateAccount(i, "email", e.target.value)}
-                placeholder="you@gmail.com"
-                className="flex-1 px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] font-mono text-sm"
-              />
-              <input
-                type="text"
-                value={acc.label}
-                onChange={(e) => updateAccount(i, "label", e.target.value)}
-                placeholder="Label (e.g., Work)"
-                className="w-40 px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] text-sm"
-              />
-              {config.googleAccounts.length > 1 && (
-                <button
-                  onClick={() => removeAccount(i)}
-                  className="text-[#94A3B8] hover:text-red-500 text-lg"
-                >
-                  &times;
-                </button>
-              )}
+            <div
+              key={i}
+              className="border border-[#E2E8F0] rounded-xl p-4 space-y-3 bg-white"
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="email"
+                  value={acc.email}
+                  onChange={(e) => updateAccount(i, "email", e.target.value)}
+                  placeholder="you@gmail.com"
+                  className="flex-1 px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] font-mono text-sm"
+                />
+                <input
+                  type="text"
+                  value={acc.label}
+                  onChange={(e) => updateAccount(i, "label", e.target.value)}
+                  placeholder="Label (e.g., Work)"
+                  className="w-40 px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] text-sm"
+                />
+                {config.googleAccounts.length > 1 && (
+                  <button
+                    onClick={() => removeAccount(i)}
+                    className="text-[#94A3B8] hover:text-red-500 text-lg shrink-0"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {(
+                  [
+                    { id: "personal" as const, label: "Personal Gmail" },
+                    { id: "workspace" as const, label: "Company Workspace" },
+                  ]
+                ).map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => updateAccountType(i, opt.id)}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+                      acc.accountType === opt.id
+                        ? "border-[#16A34A] bg-[#DCFCE7]/40 text-[#16A34A]"
+                        : "border-[#E2E8F0] bg-white text-[#475569] hover:border-[#94A3B8]"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -900,6 +1260,24 @@ function AccountsStep({
         >
           + Add another account
         </button>
+
+        {hasWorkspace && (
+          <div className="bg-[#FEF9C3] border border-[#FDE68A] rounded-xl p-5">
+            <p className="font-semibold text-sm text-[#854D0E] mb-2">
+              Heads up about company Workspace accounts
+            </p>
+            <p className="text-sm text-[#854D0E] leading-relaxed">
+              Some organizations block self-created Google Cloud projects or
+              unverified app access. If you hit an &ldquo;Access blocked / blocked
+              by your administrator&rdquo; screen during setup, that&apos;s an org
+              policy, not a broken install. Your assistant will walk you through
+              the options: sign in to the corporate address through a personal
+              Google Cloud project as a test user, ask your Workspace admin to
+              allow-list the app, or connect that account through the Google MCP
+              connector instead. Personal Gmail accounts almost never hit this.
+            </p>
+          </div>
+        )}
 
         <div className="border-t border-[#E2E8F0] pt-6">
           <label className="flex items-start gap-3 cursor-pointer">
@@ -926,6 +1304,13 @@ function AccountsStep({
             </div>
           </label>
         </div>
+
+        <p className="text-[#94A3B8] text-xs leading-relaxed">
+          Under the hood, Gmail, Calendar, and Drive run through the Google
+          Workspace CLI (<code className="bg-[#F1F5F9] px-1 py-0.5 rounded font-mono">gws</code>),
+          installed during setup. It&apos;s the primary path; the Google MCP
+          connector is a fallback only for admin-locked Workspace domains.
+        </p>
       </div>
     </StepShell>
   );
@@ -1079,7 +1464,7 @@ function SkillsStep({
                   <p className="font-semibold text-sm">{skill.name}</p>
                   <span
                     className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${
-                      skill.invokeType === "user"
+                      (skill.invokeType as string) === "user"
                         ? "bg-[#DCFCE7] text-[#16A34A]"
                         : "bg-blue-50 text-blue-600"
                     }`}
@@ -1090,6 +1475,14 @@ function SkillsStep({
                 <p className="text-[#475569] text-sm mt-1 leading-relaxed">
                   {skill.description}
                 </p>
+                {"note" in skill && skill.note && (
+                  <div className="mt-2 flex items-start gap-2 bg-[#FEF9C3] border border-[#FDE68A] rounded-lg p-2.5">
+                    <span className="text-[#A16207] text-sm leading-none mt-0.5">⚠</span>
+                    <p className="text-[#854D0E] text-xs leading-relaxed">
+                      {skill.note}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </label>
@@ -1340,6 +1733,7 @@ function ReviewStep({
     >
       <div className="space-y-4">
         {[
+          { label: "Kit version", value: KIT_VERSION },
           { label: "Platform", value: config.platform === "pc" ? "PC (Windows)" : "Mac" },
           { label: "System name", value: config.systemName },
           { label: "Your name", value: config.userName },
@@ -1348,20 +1742,30 @@ function ReviewStep({
             label: "Permissions",
             value:
               config.permissionMode === "auto"
-                ? "Auto Mode (recommended)"
+                ? "Auto (recommended)"
                 : config.permissionMode === "restrictive"
                   ? "Restrictive"
                   : "Permissive",
           },
           {
-            label: "Terminal theme",
-            value: config.terminalTheme === "light" ? "Light" : "Dark",
+            label: "Terminal",
+            value:
+              config.platform === "pc"
+                ? `Windows Terminal · ${config.terminalTheme === "light" ? "Light" : "Dark"}`
+                : config.useOwnTerminal
+                  ? `My own terminal · ${config.terminalTheme === "light" ? "Light" : "Dark"}`
+                  : `Ghostty · ${config.terminalTheme === "light" ? "Light" : "Dark"}`,
           },
           {
             label: "Google accounts",
             value: config.googleAccounts
               .filter((a) => a.email)
-              .map((a) => `${a.email}${a.label ? ` (${a.label})` : ""}`)
+              .map(
+                (a) =>
+                  `${a.email}${a.label ? ` (${a.label})` : ""} — ${
+                    a.accountType === "workspace" ? "Workspace" : "Personal"
+                  }`,
+              )
               .join(", "),
           },
           {
@@ -1448,6 +1852,19 @@ function ExportStep({
     >
       <div className="space-y-6">
         <div className="bg-[#1E293B] rounded-xl p-6">
+          <p className="text-sm font-medium text-[#94A3B8] mb-1">
+            What happens next
+          </p>
+          <p className="text-[#FAFAFA]/80 text-sm leading-relaxed">
+            You&apos;ll download your config, then hand off to Claude Code. From
+            there <span className="text-white font-medium">your assistant takes over</span> &mdash;
+            it reads your config, builds your vault, connects your tools, and runs
+            your first ritual with you. The seam below is the last thing you do by
+            hand.
+          </p>
+        </div>
+
+        <div className="bg-[#1E293B] rounded-xl p-6">
           <p className="text-sm font-medium text-[#94A3B8] mb-3">
             Step 1 &mdash; Download your config
           </p>
@@ -1463,30 +1880,62 @@ function ExportStep({
               ? "✓ Downloaded user-config.json"
               : "Download user-config.json"}
           </button>
+          <p className="text-[#94A3B8] text-xs mt-3">
+            Stamped with kit version{" "}
+            <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-[#FAFAFA]">
+              {KIT_VERSION}
+            </code>
+            .
+          </p>
         </div>
 
         <div className="bg-[#1E293B] rounded-xl p-6">
           <p className="text-sm font-medium text-[#94A3B8] mb-3">
-            Step 2 &mdash; Clone the setup repo and move your config into it
+            Step 2 &mdash; Clone the installer and drop your config in
           </p>
-          <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed text-[#FAFAFA]">
-            <span className="text-[#94A3B8]">$</span> git clone https://github.com/bryanstealey/personal-os-starter.git ~/{config.systemName}
-            <br />
-            <span className="text-[#94A3B8]">$</span> mv ~/Downloads/user-config.json ~/{config.systemName}/config/
-          </code>
-        </div>
-
-        <div className="bg-[#1E293B] rounded-xl p-6">
-          <p className="text-sm font-medium text-[#94A3B8] mb-3">
-            Step 3 &mdash; Open {config.platform === "pc" ? "Windows Terminal" : "Ghostty"} and start Claude Code
-          </p>
-          <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono text-[#FAFAFA]">
-            <span className="text-[#94A3B8]">$</span> cd ~/{config.systemName} && claude
+          <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed text-[#FAFAFA] whitespace-pre-wrap break-all">
+            <span className="text-[#94A3B8]">$</span> git clone https://github.com/bryanstealey/personal-os-starter.git ~/personal-os-installer
+            {"\n"}
+            <span className="text-[#94A3B8]">$</span> mv ~/Downloads/user-config.json ~/personal-os-installer/config/
           </code>
           <p className="text-[#94A3B8] text-xs mt-3">
-            Claude will read your config and guide you through the rest &mdash;
-            installing skills, creating your Obsidian vault, connecting your tools, and
-            building your first project.
+            The installer lives in its own folder &mdash; separate from the vault
+            it builds. Your vault gets created fresh at{" "}
+            <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-[#FAFAFA]">
+              ~/{config.systemName || "your-system"}
+            </code>{" "}
+            during setup, with no leftover installer files inside it.
+          </p>
+        </div>
+
+        <div className="bg-[#1E293B] rounded-xl p-6">
+          <p className="text-sm font-medium text-[#94A3B8] mb-3">
+            Step 3 &mdash; Start Claude Code from the installer
+          </p>
+          <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono text-[#FAFAFA] whitespace-pre-wrap break-all">
+            <span className="text-[#94A3B8]">$</span> cd ~/personal-os-installer && claude
+          </code>
+          <p className="text-[#94A3B8] text-xs mt-3">
+            On first launch, Claude greets you by name, recaps what you&apos;ve
+            configured, and continues straight into setup &mdash; installing
+            skills, building your vault at{" "}
+            <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-[#FAFAFA]">
+              ~/{config.systemName || "your-system"}
+            </code>
+            , connecting your tools, and creating your first project. No need to
+            tell it what to do; it picks up from your config.
+          </p>
+        </div>
+
+        <div className="bg-[#FEF9C3] rounded-xl p-6 border border-[#FDE68A]">
+          <p className="font-semibold text-sm text-[#854D0E] mb-2">
+            This is a test build ({KIT_VERSION})
+          </p>
+          <p className="text-[#854D0E] text-sm leading-relaxed">
+            You&apos;re an early tester, so expect a rough edge or two. There&apos;s
+            no auto-update yet &mdash; fixes get hand-delivered. If something
+            breaks or feels off, note the kit version above and flag it; that
+            tells us exactly which build you&apos;re on.
           </p>
         </div>
 
@@ -1508,15 +1957,21 @@ function ExportStep({
 }
 
 export default function Home() {
-  const [step, setStep] = useState(-2);
+  const [step, setStep] = useState(-3);
   const [config, setConfig] = useState<UserConfig>(DEFAULT_CONFIG);
 
-  const next = () => setStep((s) => s + 1);
+  const next = () => {
+    // Stamp startedAt the first time the user advances past Welcome. The
+    // installer treats a non-null startedAt as "resume," not "fresh start."
+    setConfig((c) => (c.startedAt ? c : { ...c, startedAt: new Date().toISOString() }));
+    setStep((s) => s + 1);
+  };
   const back = () => setStep((s) => s - 1);
 
   return (
     <main className="flex-1 flex flex-col px-6 py-8 sm:px-8 lg:px-12 min-h-screen">
-      {step === -2 && <WelcomeStep onNext={next} />}
+      {step === -3 && <WelcomeStep onNext={next} />}
+      {step === -2 && <ConceptStep onNext={next} onBack={back} />}
       {step === -1 && (
         <PlatformStep
           config={config}

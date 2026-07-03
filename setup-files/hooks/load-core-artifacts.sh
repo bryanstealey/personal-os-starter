@@ -15,6 +15,13 @@
 
 set -eu
 
+# jq is required for parsing the hook's JSON input. If it's missing, fail open
+# (skip context injection) rather than erroring out the session start.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "load-core-artifacts hook: jq not found on PATH — skipping Core Artifacts injection. Install jq (brew install jq) to enable this hook." >&2
+  exit 0
+fi
+
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 

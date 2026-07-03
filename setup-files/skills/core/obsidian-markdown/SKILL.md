@@ -187,6 +187,40 @@ The algorithm uses $O(n \log n)$ sorting. See [[Algorithm Notes#Sorting]] for de
 Reviewed in [[Meeting Notes 2024-01-10#Decisions]].
 ````
 
+## Vault Conventions
+
+These conventions keep the vault a connected *graph*, not a folder of isolated notes.
+Obsidian draws graph edges only from `[[wikilinks]]` — prose mentions and tags do not
+create edges, and agent graph traversal (`ob backlinks`, `ob links`) returns nothing
+for an entity that's only referenced in prose. Follow these whenever you write vault
+content.
+
+- **Shortest-path links.** Use `[[filename|Display Name]]`, never full paths. Vault
+  filenames are unique, so `[[julie-kramer|Julie Kramer]]` always resolves and
+  survives folder moves; full paths break on restructure.
+- **Bidirectionality.** If note A links to note B, B should link back to A somewhere
+  (in the manifest or a connected file). Add the reverse link when you create the
+  forward one.
+- **Person-files must link out.** Every `type: person` file carries at least one
+  outgoing `[[wikilink]]` to a bucket, project, or another person — usually in its
+  `## Connection to X` section. No person is context-less; a person-file with no
+  wikilink shows as an isolated node and is invisible to graph traversal.
+- **`description:` and `topics:` frontmatter.** Active content files (buckets,
+  knowledge, resources) should include `description:` (a one-line label of what the
+  file *is*, not a summary) and `topics:` (3–8 semantic search terms that bridge
+  vocabulary gaps). These make the file findable by `ob search` when someone uses
+  different words than the prose.
+
+```yaml
+---
+description: Client engagement manifest for Julie Kramer (Canine Cabins)
+topics:
+  - dog boarding
+  - referral source
+  - Pittsburgh client
+---
+```
+
 ## References
 
 - [Obsidian Flavored Markdown](https://help.obsidian.md/obsidian-flavored-markdown)

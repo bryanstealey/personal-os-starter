@@ -4,6 +4,18 @@
 #
 # Requires VAULT_PATH environment variable to be set (e.g., ~/my-system)
 # Falls back to detecting .obsidian/ directory in parent paths
+#
+# Skip list is configurable: set OBSIDIAN_LINT_SKIP to a colon-separated list
+# of glob patterns to exclude additional files from linting (e.g.
+# "*/inbox/*:*NOTES_v*"). The patterns below are sensible defaults; your value
+# is appended to them, not a replacement.
+
+# jq is required for parsing the hook's JSON input. If it's missing, fail open
+# (skip linting) rather than erroring out after an edit.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "obsidian-lint hook: jq not found on PATH — skipping vault lint. Install jq (brew install jq) to enable this hook." >&2
+  exit 0
+fi
 
 INPUT=$(cat)
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
@@ -31,26 +43,91 @@ case "$FILE_PATH" in
   *) exit 0 ;;
 esac
 
-# Skip system/processing files that don't need vault formatting
-# .claude/ holds slash commands, sub-agent definitions, and skill files — not vault notes
-# CLAUDE.md files are Claude Code config, not Obsidian content — never require frontmatter
-case "$FILE_PATH" in
-  */CLAUDE.md|*/.claude/*|*/processing-logs/*|*/processed-inbox.md|*/.obsidian/*|*/brain-dump.md|*/daily/*.md|*HANDOFF_v*|*WORKLOG_v*)
-    exit 0
-    ;;
-esac
+# Skip system/processing files that don't need vault formatting.
+#
+# Two tiers:
+#   1. Always-skip (universal, never lintable as Obsidian notes):
+#      - CLAUDE.md files are Claude Code config, not Obsidian content
+#      - .claude/ holds slash commands, sub-agent defs, skill files
+#      - .obsidian/ holds Obsidian's own config
+#   2. Default skip patterns (common loose-note / log / draft conventions),
+#      extendable via the OBSIDIAN_LINT_SKIP env var (colon-separated globs).
+ALWAYS_SKIP=(
+  "*/CLAUDE.md"
+  "*/.claude/*"
+  "*/.obsidian/*"
+)
 
-ISSUES=()
+# Default loose-file patterns. These are conventions, not requirements — a new
+# user with different naming can override/extend via OBSIDIAN_LINT_SKIP.
+DEFAULT_SKIP=(
+  "*/processing-logs/*"
+  "*/logs/*"
+  "*/processed-inbox.md"
+  "*/brain-dump.md"
+  "*/daily/*.md"
+  "*HANDOFF_v*"
+  "*WORKLOG_v*"
+  "*/README.md"
+  "*/readme.md"
+)
+
+# User-supplied additional skip patterns (colon-separated).
+USER_SKIP=()
+if [[ -n "${OBSIDIAN_LINT_SKIP:-}" ]]; then
+  IFS=':' read -ra USER_SKIP <<< "$OBSIDIAN_LINT_SKIP"
+fi
+
+for pattern in "${ALWAYS_SKIP[@]}" "${DEFAULT_SKIP[@]}" "${USER_SKIP[@]}"; do
+  [[ -z "$pattern" ]] && continue
+  # shellcheck disable=SC2053
+  if [[ "$FILE_PATH" == $pattern ]]; then
+    exit 0
+  fi
+done
+
+# Build a single cached list of all .md files in the vault ONCE, then test
+# wiki-link targets via in-memory membership instead of a `find` per link.
+# This replaces the old O(links × files) `find $VAULT` storm with a single walk.
+declare -a VAULT_MD
+while IFS= read -r f; do
+  VAULT_MD+=("$f")
+done < <(find "$VAULT" -iname '*.md' -not -path "*/.obsidian/*" -not -path "*/.trash/*" 2>/dev/null)
+
+# Lowercased basenames-without-extension, for case-insensitive membership tests.
+declare -a VAULT_BASENAMES
+for f in "${VAULT_MD[@]}"; do
+  b=$(basename "$f")
+  b="${b%.md}"
+  VAULT_BASENAMES+=("$(echo "$b" | tr '[:upper:]' '[:lower:]')")
+done
+
+# Membership test: does a target (case-insensitive, .md optional) resolve to a
+# real vault file? Matches against basename, with or without the .md suffix.
+link_resolves() {
+  local target="$1"
+  local want
+  want="${target%.md}"
+  want="$(echo "$want" | tr '[:upper:]' '[:lower:]')"
+  local base
+  for base in "${VAULT_BASENAMES[@]}"; do
+    [[ "$base" == "$want" ]] && return 0
+  done
+  return 1
+}
+
+ERRORS=()   # blocking-ish: malformed frontmatter
+NUDGES=()   # informational: unresolved wiki-links (normal Obsidian state)
 
 # --- Check 1: Frontmatter exists ---
 FIRST_LINE=$(head -1 "$FILE_PATH" 2>/dev/null)
 if [[ "$FIRST_LINE" != "---" ]]; then
-  ISSUES+=("MISSING FRONTMATTER: File does not start with --- (YAML frontmatter required for all vault .md files)")
+  ERRORS+=("MISSING FRONTMATTER: File does not start with --- (YAML frontmatter recommended for vault .md files: add a description: and topics: block)")
 else
   # Check frontmatter closes
   CLOSE=$(awk 'NR>1 && /^---$/{print NR; exit}' "$FILE_PATH")
   if [[ -z "$CLOSE" ]]; then
-    ISSUES+=("BROKEN FRONTMATTER: Opening --- found but no closing --- delimiter")
+    ERRORS+=("BROKEN FRONTMATTER: Opening --- found but no closing --- delimiter")
   fi
 fi
 
@@ -68,33 +145,37 @@ while IFS= read -r link; do
   target="${link%%#*}"
   [[ -z "$target" ]] && continue
 
-  # Search for the target file in the vault (case-insensitive, .md extension optional)
-  FOUND=$(find "$VAULT" -iname "${target}.md" -not -path "*/.obsidian/*" -not -path "*/.trash/*" 2>/dev/null | head -1)
-  if [[ -z "$FOUND" ]]; then
-    # Try without .md extension (might be linking to exact filename)
-    FOUND=$(find "$VAULT" -iname "$target" -not -path "*/.obsidian/*" -not -path "*/.trash/*" 2>/dev/null | head -1)
-  fi
-
-  if [[ -z "$FOUND" ]]; then
-    ISSUES+=("BROKEN WIKI-LINK: [[${link}]] — no matching file found in vault")
+  if ! link_resolves "$target"; then
+    NUDGES+=("[[${link}]] — no matching file in vault yet. Create it as a stub if it should exist?")
   fi
 done <<< "$LINKS"
 
 # --- Report results ---
-if [[ ${#ISSUES[@]} -eq 0 ]]; then
+if [[ ${#ERRORS[@]} -eq 0 && ${#NUDGES[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Build issue report
 REPORT=""
-for issue in "${ISSUES[@]}"; do
-  REPORT="${REPORT}• ${issue}\n"
-done
+
+if [[ ${#ERRORS[@]} -gt 0 ]]; then
+  REPORT="${REPORT}Frontmatter issues (worth fixing):\n"
+  for issue in "${ERRORS[@]}"; do
+    REPORT="${REPORT}• ${issue}\n"
+  done
+fi
+
+if [[ ${#NUDGES[@]} -gt 0 ]]; then
+  [[ -n "$REPORT" ]] && REPORT="${REPORT}\n"
+  REPORT="${REPORT}Unresolved wiki-links (informational — normal while building the graph):\n"
+  for nudge in "${NUDGES[@]}"; do
+    REPORT="${REPORT}• ${nudge}\n"
+  done
+fi
 
 jq -n --arg report "$(echo -e "$REPORT")" '{
   hookSpecificOutput: {
     hookEventName: "PostToolUse",
-    additionalContext: ("OBSIDIAN LINT ISSUES in this file:\n" + $report + "\nPlease fix these issues before moving on.")
+    additionalContext: ("OBSIDIAN LINT (this file):\n" + $report + "\nFix frontmatter if flagged. Unresolved links are normal — only create stubs for ones that should exist.")
   }
 }'
 

@@ -1,5 +1,7 @@
 # Windows Setup Spec (PC Install Path)
 
+> ⚠️ **BETA — unvalidated.** This PC/WSL2 path has not been tested against the v1 fixes. Prefer the Mac install (`SETUP.md`); use this at your own risk.
+
 This is the decision record and install spec for running the Personal OS on a Windows PC.
 `SETUP.md` is written for macOS. Everything below is what changes when the client is on a PC.
 

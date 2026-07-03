@@ -17,6 +17,13 @@
 
 set -eu
 
+# jq is required for parsing the hook's JSON input. If it's missing, fail open
+# (don't block the response) rather than erroring out the Stop hook.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "lookup-before-asking hook: jq not found on PATH — skipping check. Install jq (brew install jq) to enable this hook." >&2
+  exit 0
+fi
+
 INPUT=$(cat)
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // empty')
 STOP_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
