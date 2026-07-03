@@ -91,7 +91,7 @@ Present a status block with a short paragraph summarizing the last session. No h
 Loaded: [handoff name] ([age]) · [N] commits since · branch: [branch] · [uncommitted changes status]
 Project: [project name]
 [System health: N stale — names]   <- only if vault AND stale components exist
-[Next ritual: /morning | /midday | /shutdown]   <- only if vault; pick based on time
+[Next ritual: /morning | /shutdown]   <- only if vault; pick based on time
 
 [One paragraph summarizing what happened in the last session — the key threads,
 what was accomplished, what decisions were made, and where things left off. Write it so
@@ -102,8 +102,7 @@ Ready. What are we working on?
 ```
 
 **Ritual pointer logic (vault only):**
-- Before 12:00 noon local time -> `Next ritual: /morning` (unless today's daily note already exists, in which case show `/midday`)
-- 12:00 noon - 5:00 PM -> `Next ritual: /midday`
+- Before 5:00 PM local time -> `Next ritual: /morning` (unless today's daily note already shows morning priorities filled in, in which case omit the pointer — nothing else is due yet)
 - After 5:00 PM -> `Next ritual: /shutdown`
 
 This is informational — do not suggest running the ritual, just surface which one is contextually next.

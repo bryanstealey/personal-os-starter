@@ -3,5 +3,7 @@
   "currentSection": null,
   "completedSections": [],
   "startedAt": null,
-  "lastUpdated": null
+  "lastUpdated": null,
+  "failures": [],
+  "confusionMoments": []
 }

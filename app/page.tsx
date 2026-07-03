@@ -29,15 +29,39 @@ interface UserConfig {
   terminalTheme: "light" | "dark";
   // "personal" = consumer @gmail.com; "workspace" = corporate Google Workspace
   // (may be admin-locked — SETUP branches on this).
-  googleAccounts: { email: string; label: string; accountType: "personal" | "workspace" }[];
+  googleAccounts: {
+    email: string;
+    label: string;
+    accountType: "personal" | "workspace";
+    // Redundant with accountType, kept explicit so the runbook can branch on
+    // this field name directly without re-deriving it.
+    corporateWorkspace: boolean;
+    useForEmail: boolean;
+    useForCalendar: boolean;
+  }[];
   businessPersonalSplit: boolean;
   taskSystem: "google-tasks" | "todoist" | "other";
   taskSystemOther?: string;
+  github: {
+    hasAccount: boolean;
+    username: string;
+  };
+  dictation: {
+    choice: "wispr-flow" | "handy" | "voiceink" | "other" | "skip";
+    other?: string;
+  };
+  financialInterest: "yes" | "no" | "later";
   optionalSkills: Record<string, boolean>;
+  interestedModules: {
+    emailSentinel: boolean;
+    notifications: boolean;
+  };
   buckets: string[];
   contextSources: Record<string, boolean>;
   userName: string;
   timezone: string;
+  alphaAcknowledged: boolean;
+  costAcknowledged: boolean;
 }
 
 const DEFAULT_CONFIG: UserConfig = {
@@ -57,14 +81,29 @@ const DEFAULT_CONFIG: UserConfig = {
   useOwnTerminal: false,
   permissionMode: "auto",
   terminalTheme: "light",
-  googleAccounts: [{ email: "", label: "Primary", accountType: "personal" }],
+  googleAccounts: [
+    {
+      email: "",
+      label: "Primary",
+      accountType: "personal",
+      corporateWorkspace: false,
+      useForEmail: true,
+      useForCalendar: true,
+    },
+  ],
   businessPersonalSplit: false,
   taskSystem: "google-tasks",
+  github: { hasAccount: false, username: "" },
+  dictation: { choice: "wispr-flow" },
+  financialInterest: "later",
   optionalSkills: {},
+  interestedModules: { emailSentinel: false, notifications: false },
   buckets: [],
   contextSources: {},
   userName: "",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  alphaAcknowledged: false,
+  costAcknowledged: false,
 };
 
 const CONTEXT_SOURCES = [
@@ -136,6 +175,36 @@ const OPTIONAL_SKILLS = [
   },
 ];
 
+const DICTATION_OPTIONS: {
+  id: "wispr-flow" | "handy" | "voiceink";
+  name: string;
+  price: string;
+  desc: string;
+  link: string;
+}[] = [
+  {
+    id: "wispr-flow",
+    name: "Wispr Flow",
+    price: "$15/mo ($12/mo billed annually) · free tier capped at 2,000 words/week",
+    desc: "What Bryan uses. Polished, cloud-based, learns your vocabulary over time. Verified pricing as of July 2026 — pricing may have changed, check their site.",
+    link: "https://wisprflow.ai",
+  },
+  {
+    id: "handy",
+    name: "Handy",
+    price: "Free, forever",
+    desc: "Free, open-source (MIT), runs fully offline — nothing leaves your Mac. Less polished text-cleanup than Wispr Flow, but zero cost and zero cloud dependency. The pick if you want to try dictation before paying for anything.",
+    link: "https://handy.computer",
+  },
+  {
+    id: "voiceink",
+    name: "VoiceInk",
+    price: "$25 one-time (Solo license) — not a subscription",
+    desc: "Open-source code, local Whisper models, one-time purchase instead of a monthly fee. A middle ground between Handy and Wispr Flow. Verified pricing as of July 2026 — pricing may have changed, check their site.",
+    link: "https://tryvoiceink.com",
+  },
+];
+
 const BUCKET_SUGGESTIONS = [
   "Career / Work",
   "Side Projects",
@@ -151,7 +220,7 @@ const BUCKET_SUGGESTIONS = [
   "Travel",
 ];
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 15;
 
 function ProgressBar({ step }: { step: number }) {
   const pct = ((step + 1) / TOTAL_STEPS) * 100;
@@ -224,6 +293,180 @@ function StepShell({
   );
 }
 
+function DisclaimerStep({
+  config,
+  setConfig,
+  onNext,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
+      <div className="bg-[#1E293B] rounded-2xl p-8 mb-8 w-full">
+        <p className="text-[#FDE68A] text-xs font-semibold uppercase tracking-wider mb-3">
+          Before you install anything
+        </p>
+        <h1 className="text-3xl font-bold text-white tracking-tight mb-3">
+          This is an alpha
+        </h1>
+        <p className="text-[#94A3B8] text-lg leading-relaxed">
+          If you&apos;re seeing it, you&apos;re testing it. I want any and all
+          feedback &mdash; what worked, what confused you, what broke.
+        </p>
+      </div>
+
+      <div className="text-left space-y-4 mb-8 w-full">
+        <div className="bg-[#FEF9C3] border border-[#FDE68A] rounded-xl p-5">
+          <p className="font-semibold text-sm text-[#854D0E] mb-2">
+            Install at your own risk.
+          </p>
+          <p className="text-[#854D0E] text-sm leading-relaxed">
+            This system gives AI agents real access to your computer and your
+            accounts. Agents are not perfect, and nobody fully knows what&apos;s
+            up yet &mdash; there&apos;s always a chance something unexpected
+            happens. I&apos;ve built guardrails everywhere I can (you&apos;ll see
+            them during setup), but installing this means you&apos;re
+            comfortable with that trade-off.
+          </p>
+          <p className="text-[#854D0E] text-sm leading-relaxed mt-3">
+            There&apos;s an{" "}
+            <a
+              href="https://github.com/bryanstealey/personal-os-starter/blob/main/UNINSTALL.md"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              UNINSTALL guide
+            </a>{" "}
+            that reverses every system-level change if you decide it&apos;s not
+            for you.
+          </p>
+        </div>
+      </div>
+
+      <label className="flex items-start gap-3 mb-8 w-full text-left cursor-pointer">
+        <input
+          type="checkbox"
+          checked={config.alphaAcknowledged}
+          onChange={(e) =>
+            setConfig({ ...config, alphaAcknowledged: e.target.checked })
+          }
+          className="mt-1 w-5 h-5 rounded accent-[#16A34A]"
+        />
+        <p className="text-[#475569] text-sm">
+          I understand this is alpha software with real access to my computer
+          and accounts, and I&apos;m installing at my own risk.
+        </p>
+      </label>
+
+      <button
+        onClick={onNext}
+        disabled={!config.alphaAcknowledged}
+        className={`px-10 py-4 rounded-lg font-semibold text-lg transition-colors ${
+          config.alphaAcknowledged
+            ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
+            : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"
+        }`}
+      >
+        I understand &mdash; continue
+      </button>
+    </div>
+  );
+}
+
+function CostGateStep({
+  config,
+  setConfig,
+  onNext,
+  onBack,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
+      <h1 className="text-3xl font-bold tracking-tight mb-2">
+        What this costs to run
+      </h1>
+      <p className="text-[#475569] text-lg mb-8">
+        You need a paid Claude plan. Know this before you invest the next 20
+        minutes.
+      </p>
+
+      <div className="grid grid-cols-2 gap-4 w-full mb-6">
+        <div className="p-6 rounded-2xl border-2 border-[#E2E8F0] bg-white text-left">
+          <p className="text-2xl font-bold mb-1">$20/mo</p>
+          <p className="font-semibold text-sm mb-2">Claude Pro</p>
+          <p className="text-[#475569] text-sm leading-relaxed">
+            The minimum. Worth a shot at first &mdash; but it will probably not
+            be enough if you use this system as your daily driver.
+          </p>
+        </div>
+        <div className="p-6 rounded-2xl border-2 border-[#16A34A] bg-[#DCFCE7]/30 text-left">
+          <p className="text-2xl font-bold mb-1">$100/mo</p>
+          <p className="font-semibold text-sm mb-2">Claude Max</p>
+          <p className="text-[#475569] text-sm leading-relaxed">
+            &ldquo;I&apos;m a heavy user and I pretty much need this &mdash; when
+            you move up, it&apos;s well worth it.&rdquo;
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-[#F1F5F9] rounded-xl p-5 text-left w-full mb-8">
+        <p className="text-[#475569] text-sm leading-relaxed">
+          Heavy moments &mdash; like the initial population of your knowledge
+          base, where your agent reads your email and files &mdash; burn
+          through limits fastest.
+        </p>
+        <p className="text-[#475569] text-sm leading-relaxed mt-3">
+          One lesson from Bryan&apos;s own system: scheduled background agents
+          share your account limits and can starve each other. You&apos;ll
+          learn to pace them.
+        </p>
+      </div>
+
+      <label className="flex items-start gap-3 mb-8 w-full text-left cursor-pointer">
+        <input
+          type="checkbox"
+          checked={config.costAcknowledged}
+          onChange={(e) =>
+            setConfig({ ...config, costAcknowledged: e.target.checked })
+          }
+          className="mt-1 w-5 h-5 rounded accent-[#16A34A]"
+        />
+        <p className="text-[#475569] text-sm">
+          I understand I need a paid Claude plan, and that heavy daily use
+          likely means Max, not Pro.
+        </p>
+      </label>
+
+      <div className="flex items-center gap-6">
+        <button
+          onClick={onBack}
+          className="text-[#475569] hover:text-[#1A1A1A] transition-colors text-sm font-medium"
+        >
+          &larr; Back
+        </button>
+        <button
+          onClick={onNext}
+          disabled={!config.costAcknowledged}
+          className={`px-10 py-4 rounded-lg font-semibold text-lg transition-colors ${
+            config.costAcknowledged
+              ? "bg-[#16A34A] text-white hover:bg-[#15803D]"
+              : "bg-[#E2E8F0] text-[#94A3B8] cursor-not-allowed"
+          }`}
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function WelcomeStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-center max-w-2xl mx-auto">
@@ -266,11 +509,22 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
           ))}
         </div>
         <p className="text-[#475569] leading-relaxed">
-          <strong className="text-[#1A1A1A]">By the end of setup</strong> you&apos;ll
-          have a working vault seeded with your real context, an assistant that
-          knows who you are and what you&apos;re working on, and two daily
-          rituals &mdash; a morning launchpad and an evening shutdown &mdash; that
-          you&apos;ll have already run once.
+          This kit works in <strong className="text-[#1A1A1A]">two phases</strong>.
+          Phase 1 is this app &mdash; right here &mdash; where you&apos;ll learn how
+          the system thinks, tell it about your stack, and generate your personal
+          config. Phase 2 happens in your terminal: Claude Code reads that config
+          and drives the install from a runbook, step by step.
+        </p>
+        <p className="text-[#475569] leading-relaxed">
+          Early on, the install is runbook-driven &mdash; you&apos;re following a
+          script, not freestyling. But your agent accumulates real context about
+          you as it goes.{" "}
+          <strong className="text-[#1A1A1A]">By the end</strong> you&apos;ll have
+          an intelligent partner that actually knows your system, a working vault
+          seeded with your real context, and two daily rituals &mdash; a morning
+          launchpad and an evening shutdown &mdash; that you&apos;ll have already
+          run once. From that point on, when you&apos;re not sure about anything,
+          you just ask it. You work it out together.
         </p>
         <div className="bg-[#DCFCE7]/50 border border-[#16A34A]/20 rounded-xl p-4">
           <p className="text-[#475569] leading-relaxed text-[15px]">
@@ -309,93 +563,136 @@ function ConceptStep({
   }[] = [
     {
       eyebrow: "The idea",
-      title: "Four parts, working together",
+      title: "What this is",
       body: (
         <div className="space-y-4">
           <p className="text-[#475569] leading-relaxed">
-            Your personal OS isn&apos;t one app. It&apos;s four pieces that reinforce
-            each other:
+            Cortex is the original &mdash; the system Bryan built to run his
+            life through a command center: everything he&apos;s responsible
+            for, wants to do, wants to get better at.
+          </p>
+          <div className="bg-[#F1F5F9] rounded-xl p-5">
+            <p className="text-[#475569] leading-relaxed">
+              The strength is that it uses <strong className="text-[#1A1A1A]">YOUR</strong> computer
+              and connects to <strong className="text-[#1A1A1A]">YOUR</strong> actual
+              tools. You end up dictating to a staff.
+            </p>
+            <p className="text-[#475569] leading-relaxed mt-3">
+              The agents are the staff members.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      eyebrow: "The heart of it",
+      title: "The two questions",
+      body: (
+        <div className="space-y-4">
+          <p className="text-[#475569] leading-relaxed">
+            High-level AI use comes down to two questions, every time:
           </p>
           <div className="space-y-3">
-            {[
-              {
-                name: "The vault",
-                desc: "An Obsidian folder of plain markdown files — one per person, project, and life area. It's just text, so it's yours forever and nothing can lock you out.",
-              },
-              {
-                name: "The assistant",
-                desc: "Claude Code, running with full read access to the vault. It doesn't guess about your life — it looks things up before it answers.",
-              },
-              {
-                name: "Projects",
-                desc: "Focused workspaces for the things you're actively pushing forward. Each one links back to a life area in the vault.",
-              },
-              {
-                name: "Rituals",
-                desc: "Short, repeatable sessions — a morning launchpad and an evening shutdown — that keep the system current without effort.",
-              },
-            ].map((part) => (
-              <div
-                key={part.name}
-                className="bg-[#F1F5F9] rounded-xl p-4 flex gap-3"
-              >
-                <div className="w-1.5 rounded-full bg-[#16A34A] shrink-0" />
-                <div>
-                  <p className="font-semibold text-sm">{part.name}</p>
-                  <p className="text-[#475569] text-sm mt-0.5 leading-relaxed">
-                    {part.desc}
-                  </p>
-                </div>
+            <div className="border border-[#E2E8F0] rounded-xl p-4 flex gap-3">
+              <p className="font-bold text-[#16A34A] text-lg leading-none">1</p>
+              <div>
+                <p className="font-semibold text-sm">What&apos;s the context?</p>
+                <p className="text-[#475569] text-sm mt-1 leading-relaxed">
+                  What exists on your computer and in your head that would
+                  help?
+                </p>
               </div>
+            </div>
+            <div className="border border-[#E2E8F0] rounded-xl p-4 flex gap-3">
+              <p className="font-bold text-[#16A34A] text-lg leading-none">2</p>
+              <div>
+                <p className="font-semibold text-sm">What do you want?</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#DCFCE7]/50 border border-[#16A34A]/20 rounded-xl p-4">
+            <p className="text-[#475569] leading-relaxed text-[15px]">
+              This system exists to answer #1 permanently, so you only ever
+              have to say #2.
+            </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      eyebrow: "A tip before you start",
+      title: "Dictation",
+      body: (
+        <div className="space-y-4">
+          <p className="text-[#475569] leading-relaxed">
+            It&apos;s hard to flow when you&apos;re typing, and this whole
+            system is built around flow. Dictation isn&apos;t mandatory, but
+            it&apos;s really highly recommended.
+          </p>
+          <p className="text-[#475569] leading-relaxed">
+            &ldquo;I use Wispr Flow. Smarter dictation software beats what
+            comes native on your Mac because it learns from you and gets much
+            cleaner.&rdquo;
+          </p>
+          <div className="space-y-2">
+            {DICTATION_OPTIONS.map((opt) => (
+              <a
+                key={opt.id}
+                href={opt.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block border border-[#E2E8F0] rounded-xl p-4 hover:border-[#16A34A] transition-colors"
+              >
+                <p className="font-semibold text-sm">
+                  {opt.name} <span className="text-[#16A34A] text-xs">&nearr;</span>
+                </p>
+                <p className="text-[#16A34A] text-xs font-medium mt-1">
+                  {opt.price}
+                </p>
+                <p className="text-[#475569] text-xs mt-1 leading-relaxed">
+                  {opt.desc}
+                </p>
+              </a>
             ))}
           </div>
         </div>
       ),
     },
     {
-      eyebrow: "Projects",
-      title: "Not just work projects",
+      eyebrow: "The trade-off",
+      title: "Access = power",
       body: (
         <div className="space-y-4">
           <p className="text-[#475569] leading-relaxed">
-            A project is anything you&apos;re actively moving forward that benefits
-            from its own context. That&apos;s broader than it sounds:
+            The more you give your system access to, the more powerful it is.
+            If you have to be very gated about information or tools, those are
+            limiting factors.
           </p>
-          <div className="grid grid-cols-1 gap-3">
+          <div className="bg-[#F1F5F9] rounded-xl p-5">
+            <p className="text-[#475569] leading-relaxed">
+              &ldquo;My approach: batten down every controllable risk so I can
+              afford to be aggressive with agents. It&apos;s not a perfect
+              handoff, but it is a perfect trade-off.&rdquo;
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             {[
-              {
-                label: "Work",
-                example: "A client engagement, a product launch, a quarterly goal.",
-              },
-              {
-                label: "Personal",
-                example: "Planning a trip, a home renovation, learning to cook.",
-              },
-              {
-                label: "Off the computer",
-                example:
-                  "Training for a race, a garden, helping a parent with their finances. The work happens in the real world — the system holds the plan, the notes, and the next step.",
-              },
-            ].map((p) => (
-              <div key={p.label} className="border border-[#E2E8F0] rounded-xl p-4">
-                <p className="font-semibold text-sm text-[#16A34A]">{p.label}</p>
-                <p className="text-[#475569] text-sm mt-1 leading-relaxed">
-                  {p.example}
-                </p>
+              "Auto permission mode — flow, with protection from the most dangerous actions",
+              "Read-only financial tools only",
+              "Private repos, always",
+              "Supply-chain guards installed by this kit",
+            ].map((item) => (
+              <div key={item} className="border border-[#E2E8F0] rounded-xl p-3 text-xs text-[#475569] leading-relaxed">
+                {item}
               </div>
             ))}
           </div>
-          <p className="text-[#475569] leading-relaxed">
-            Projects <strong className="text-[#1A1A1A]">compound</strong>: as each
-            one accumulates notes and decisions, your assistant gets better at
-            helping with it — and at seeing the connections between them.
-          </p>
         </div>
       ),
     },
     {
       eyebrow: "The rhythm",
-      title: "Bookending your day and your sessions",
+      title: "Bookends",
       body: (
         <div className="space-y-4">
           <p className="text-[#475569] leading-relaxed">
@@ -423,63 +720,46 @@ function ConceptStep({
               </p>
             </div>
           </div>
+          <p className="text-[#475569] leading-relaxed">
+            These rituals distribute your new context into your external
+            brain automatically, in real time.
+          </p>
           <div className="bg-[#DCFCE7]/50 border border-[#16A34A]/20 rounded-xl p-4">
             <p className="text-[#475569] text-sm leading-relaxed">
               <strong className="text-[#16A34A]">Missing one is fine.</strong> Skip
-              a morning, forget a shutdown — the system doesn&apos;t punish you. The
-              bookends are there to help, not to become another thing you owe.
+              a morning, forget a shutdown — nothing falls apart. The more work
+              you route through the system, the more your brain grows and the
+              better it gets. Bryan sometimes does easy things through his
+              system just so it knows they happened.
             </p>
           </div>
         </div>
       ),
     },
     {
-      eyebrow: "A tip before you start",
-      title: "Talk to it — don't type everything",
+      eyebrow: "New this week",
+      title: "Remote Control",
       body: (
         <div className="space-y-4">
           <p className="text-[#475569] leading-relaxed">
-            The fastest way to feed your system is your voice. Brain-dumping out
-            loud beats typing, especially for messy, half-formed thoughts — which
-            is exactly the kind of context a personal OS thrives on.
+            &ldquo;I&apos;ve been loving this for the past couple weeks.&rdquo;
+            Setup bakes in the config to start Remote Control every session,
+            so you can drive Claude Code from your phone.
           </p>
-          <p className="text-[#475569] leading-relaxed">
-            Set up dictation now so it&apos;s ready when you start. Two good
-            options:
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <a
-              href="https://wisprflow.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-[#E2E8F0] rounded-xl p-4 hover:border-[#16A34A] transition-colors"
-            >
-              <p className="font-semibold text-sm">
-                Wispr Flow{" "}
-                <span className="text-[#16A34A] text-xs">&nearr;</span>
-              </p>
-              <p className="text-[#475569] text-xs mt-1 leading-relaxed">
-                Polished, low-friction dictation that works system-wide. Paid.
-              </p>
-            </a>
-            <a
-              href="https://github.com/cjpais/FluidVoice"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-[#E2E8F0] rounded-xl p-4 hover:border-[#16A34A] transition-colors"
-            >
-              <p className="font-semibold text-sm">
-                FluidVoice{" "}
-                <span className="text-[#16A34A] text-xs">&nearr;</span>
-              </p>
-              <p className="text-[#475569] text-xs mt-1 leading-relaxed">
-                Free, open-source, local dictation for macOS. Runs on your machine.
-              </p>
-            </a>
+          <p className="text-[#475569] leading-relaxed">A few realities:</p>
+          <div className="space-y-2">
+            {[
+              "Your computer must be ON — the protocol is leave it plugged in, set it to not sleep while plugged in. Lid closed is fine.",
+              "Sessions MUST be started from your computer — the phone app (Claude app → Code) controls sessions, it can't start them.",
+              "Think ahead about when you'll be away, and start what you need before you leave.",
+            ].map((item) => (
+              <div key={item} className="bg-[#F1F5F9] rounded-xl p-4 text-sm text-[#475569] leading-relaxed">
+                {item}
+              </div>
+            ))}
           </div>
           <p className="text-[#94A3B8] text-sm leading-relaxed">
-            Optional, but the people who lean on dictation get far more out of the
-            system than the people who type.
+            Always-on servers are a thing Bryan might explore someday. Not now.
           </p>
         </div>
       ),
@@ -950,7 +1230,7 @@ function PreflightStep({
       install: "brew install --cask obsidian",
       copyable: true,
       link: "https://obsidian.md",
-      desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
+      desc: "Your knowledge vault. Free. Don't create a vault yet — the setup will handle that.",
     },
     {
       key: "node" as const,
@@ -993,7 +1273,7 @@ function PreflightStep({
       install: "Download the Windows installer from obsidian.md",
       copyable: false,
       link: "https://obsidian.md",
-      desc: "Your knowledge vault. Don't create a vault yet — the setup will handle that.",
+      desc: "Your knowledge vault. Free. Don't create a vault yet — the setup will handle that.",
     },
     {
       key: "node" as const,
@@ -1157,7 +1437,14 @@ function AccountsStep({
       ...config,
       googleAccounts: [
         ...config.googleAccounts,
-        { email: "", label: "", accountType: "personal" },
+        {
+          email: "",
+          label: "",
+          accountType: "personal",
+          corporateWorkspace: false,
+          useForEmail: true,
+          useForCalendar: true,
+        },
       ],
     });
 
@@ -1173,9 +1460,30 @@ function AccountsStep({
 
   const updateAccountType = (i: number, val: "personal" | "workspace") => {
     const updated = [...config.googleAccounts];
-    updated[i] = { ...updated[i], accountType: val };
+    updated[i] = {
+      ...updated[i],
+      accountType: val,
+      corporateWorkspace: val === "workspace",
+    };
     setConfig({ ...config, googleAccounts: updated });
   };
+
+  const updateAccountUse = (
+    i: number,
+    field: "useForEmail" | "useForCalendar",
+    val: boolean,
+  ) => {
+    const updated = [...config.googleAccounts];
+    updated[i] = { ...updated[i], [field]: val };
+    setConfig({ ...config, googleAccounts: updated });
+  };
+
+  const emailCount = config.googleAccounts.filter(
+    (a) => a.email && a.useForEmail,
+  ).length;
+  const calendarCount = config.googleAccounts.filter(
+    (a) => a.email && a.useForCalendar,
+  ).length;
 
   const hasWorkspace = config.googleAccounts.some(
     (a) => a.accountType === "workspace",
@@ -1250,16 +1558,50 @@ function AccountsStep({
                   </button>
                 ))}
               </div>
+              <div className="flex gap-4 pt-1">
+                <label className="flex items-center gap-2 text-xs text-[#475569] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acc.useForEmail}
+                    onChange={(e) =>
+                      updateAccountUse(i, "useForEmail", e.target.checked)
+                    }
+                    className="w-4 h-4 rounded accent-[#16A34A]"
+                  />
+                  Use for email
+                </label>
+                <label className="flex items-center gap-2 text-xs text-[#475569] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={acc.useForCalendar}
+                    onChange={(e) =>
+                      updateAccountUse(i, "useForCalendar", e.target.checked)
+                    }
+                    className="w-4 h-4 rounded accent-[#16A34A]"
+                  />
+                  Use for calendar
+                </label>
+              </div>
             </div>
           ))}
         </div>
 
-        <button
-          onClick={addAccount}
-          className="text-[#16A34A] text-sm font-medium hover:underline"
-        >
-          + Add another account
-        </button>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={addAccount}
+            className="text-[#16A34A] text-sm font-medium hover:underline"
+          >
+            + Add another account
+          </button>
+          <p className="text-[#94A3B8] text-xs">
+            {emailCount} email · {calendarCount} calendar
+          </p>
+        </div>
+
+        <p className="text-[#94A3B8] text-xs leading-relaxed">
+          Per-account aliases and sign-in get finished in the terminal during
+          setup — this is just which accounts, and what they&apos;re for.
+        </p>
 
         {hasWorkspace && (
           <div className="bg-[#FEF9C3] border border-[#FDE68A] rounded-xl p-5">
@@ -1316,6 +1658,100 @@ function AccountsStep({
   );
 }
 
+function GitHubStep({
+  config,
+  setConfig,
+  onNext,
+  onBack,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <StepShell
+      step={5}
+      title="GitHub"
+      subtitle="Effectively required — it's the backup rail for everything this kit builds."
+      onNext={onNext}
+      onBack={onBack}
+      nextDisabled={config.github.hasAccount && !config.github.username.trim()}
+    >
+      <div className="space-y-6">
+        <div className="bg-[#1E293B] rounded-xl p-6 space-y-3">
+          <p className="text-[#FAFAFA]/90 text-sm leading-relaxed">
+            &ldquo;I use GitHub for two things: backing my whole system up off
+            my machine every night, and hosting the web projects I build.
+            Here&apos;s the thing &mdash; I don&apos;t operate git myself. My
+            agent does. That&apos;s the model for every tool in this system you
+            don&apos;t deeply understand: your agent is the operator,
+            you&apos;re the director.&rdquo;
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-[#475569]">What it gives you</p>
+          {[
+            "If your laptop dies, your brain survives.",
+            "A time machine — every day's state of your vault is recoverable.",
+            "It's how this kit and your future projects ship.",
+          ].map((item, i) => (
+            <div key={item} className="flex gap-3 items-start bg-[#F1F5F9] rounded-xl p-3">
+              <p className="font-bold text-[#16A34A] text-sm leading-none mt-0.5">{i + 1}</p>
+              <p className="text-[#475569] text-sm leading-relaxed">{item}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-[#FEF9C3] border border-[#FDE68A] rounded-xl p-4">
+          <p className="text-[#854D0E] text-sm leading-relaxed">
+            <strong>Non-negotiable: vault repos are PRIVATE.</strong> This is
+            your life. The setup creates private repos by default.
+          </p>
+        </div>
+
+        <div className="border-t border-[#E2E8F0] pt-6 space-y-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={config.github.hasAccount}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  github: { ...config.github, hasAccount: e.target.checked },
+                })
+              }
+              className="mt-1 w-5 h-5 rounded accent-[#16A34A]"
+            />
+            <p className="font-medium text-sm">I already have a GitHub account</p>
+          </label>
+
+          {config.github.hasAccount ? (
+            <input
+              type="text"
+              value={config.github.username}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  github: { ...config.github, username: e.target.value },
+                })
+              }
+              placeholder="Your GitHub username"
+              className="w-full px-4 py-3 rounded-lg border border-[#E2E8F0] bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] font-mono text-sm"
+            />
+          ) : (
+            <p className="text-[#94A3B8] text-sm leading-relaxed">
+              No problem — creating a free account (github.com) is one of the
+              first things setup will walk you through.
+            </p>
+          )}
+        </div>
+      </div>
+    </StepShell>
+  );
+}
+
 function TaskSystemStep({
   config,
   setConfig,
@@ -1347,12 +1783,21 @@ function TaskSystemStep({
 
   return (
     <StepShell
-      step={5}
+      step={6}
       title="Task system"
-      subtitle="Your system needs a task source of truth — the place where 'what I need to do' lives. Which do you use?"
+      subtitle="Your system needs a task source of truth — the place where 'what I need to do' lives. Which do you use? (Required — every option here works.)"
       onNext={onNext}
       onBack={onBack}
     >
+      <div className="bg-[#F1F5F9] rounded-xl p-4 mb-4">
+        <p className="text-[#475569] text-sm leading-relaxed">
+          <strong className="text-[#1A1A1A]">The doctrine:</strong> your task
+          manager holds dated commitments only &mdash; things you said
+          you&apos;d do by a date. Everything else (the backlog) lives in your
+          knowledge base. The date, not the project, is the organizing
+          principle.
+        </p>
+      </div>
       <div className="space-y-3">
         {options.map((opt) => (
           <label
@@ -1395,6 +1840,189 @@ function TaskSystemStep({
   );
 }
 
+function DictationStep({
+  config,
+  setConfig,
+  onNext,
+  onBack,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <StepShell
+      step={7}
+      title="Dictation"
+      subtitle="Optional, but the people who lean on dictation get far more out of the system than the people who type. Pick one, or skip for now."
+      onNext={onNext}
+      onBack={onBack}
+    >
+      <div className="space-y-3">
+        {DICTATION_OPTIONS.map((opt) => (
+          <label
+            key={opt.id}
+            className={`block p-4 rounded-xl border cursor-pointer transition-all ${
+              config.dictation.choice === opt.id
+                ? "border-[#16A34A] bg-[#DCFCE7]/30"
+                : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="dictation"
+                checked={config.dictation.choice === opt.id}
+                onChange={() =>
+                  setConfig({ ...config, dictation: { choice: opt.id } })
+                }
+                className="mt-1 w-4 h-4 accent-[#16A34A]"
+              />
+              <div>
+                <p className="font-semibold text-sm">{opt.name}</p>
+                <p className="text-[#16A34A] text-xs font-medium mt-0.5">
+                  {opt.price}
+                </p>
+                <p className="text-[#475569] text-sm mt-1 leading-relaxed">
+                  {opt.desc}
+                </p>
+              </div>
+            </div>
+          </label>
+        ))}
+
+        <label
+          className={`block p-4 rounded-xl border cursor-pointer transition-all ${
+            config.dictation.choice === "other"
+              ? "border-[#16A34A] bg-[#DCFCE7]/30"
+              : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <input
+              type="radio"
+              name="dictation"
+              checked={config.dictation.choice === "other"}
+              onChange={() =>
+                setConfig({ ...config, dictation: { choice: "other", other: config.dictation.other } })
+              }
+              className="w-4 h-4 accent-[#16A34A]"
+            />
+            <p className="font-semibold text-sm">Something else</p>
+          </div>
+          {config.dictation.choice === "other" && (
+            <input
+              type="text"
+              value={config.dictation.other || ""}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  dictation: { choice: "other", other: e.target.value },
+                })
+              }
+              placeholder="What do you use?"
+              className="w-full mt-3 px-4 py-2.5 rounded-lg border border-[#E2E8F0] bg-white focus:outline-none focus:ring-2 focus:ring-[#16A34A]/30 focus:border-[#16A34A] text-sm"
+            />
+          )}
+        </label>
+
+        <label
+          className={`block p-4 rounded-xl border cursor-pointer transition-all ${
+            config.dictation.choice === "skip"
+              ? "border-[#16A34A] bg-[#DCFCE7]/30"
+              : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <input
+              type="radio"
+              name="dictation"
+              checked={config.dictation.choice === "skip"}
+              onChange={() =>
+                setConfig({ ...config, dictation: { choice: "skip" } })
+              }
+              className="w-4 h-4 accent-[#16A34A]"
+            />
+            <div>
+              <p className="font-semibold text-sm">Not now</p>
+              <p className="text-[#94A3B8] text-xs mt-0.5">
+                Type for now — you can add dictation any time later.
+              </p>
+            </div>
+          </div>
+        </label>
+      </div>
+    </StepShell>
+  );
+}
+
+function FinancialStep({
+  config,
+  setConfig,
+  onNext,
+  onBack,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const options: { id: UserConfig["financialInterest"]; name: string }[] = [
+    { id: "yes", name: "Yes, connect what I can" },
+    { id: "no", name: "No — keep finances out of this system" },
+    { id: "later", name: "Not sure yet — decide during setup" },
+  ];
+
+  return (
+    <StepShell
+      step={8}
+      title="Financial tools"
+      subtitle=""
+      onNext={onNext}
+      onBack={onBack}
+    >
+      <div className="space-y-6">
+        <div className="bg-[#F1F5F9] rounded-xl p-5 text-sm leading-relaxed text-[#475569]">
+          <p>
+            &ldquo;I use read-only budgeting tools with zero spending capacity
+            (FreshBooks for business, YNAB for personal). Whether you connect
+            anything depends on your tools and your risk tolerance. The kit
+            doesn&apos;t automate money &mdash; it just can see what you
+            choose to show it.&rdquo;
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {options.map((opt) => (
+            <label
+              key={opt.id}
+              className={`block p-4 rounded-xl border cursor-pointer transition-all ${
+                config.financialInterest === opt.id
+                  ? "border-[#16A34A] bg-[#DCFCE7]/30"
+                  : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <input
+                  type="radio"
+                  name="financialInterest"
+                  checked={config.financialInterest === opt.id}
+                  onChange={() =>
+                    setConfig({ ...config, financialInterest: opt.id })
+                  }
+                  className="w-4 h-4 accent-[#16A34A]"
+                />
+                <p className="font-semibold text-sm">{opt.name}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+    </StepShell>
+  );
+}
+
 function SkillsStep({
   config,
   setConfig,
@@ -1417,7 +2045,7 @@ function SkillsStep({
 
   return (
     <StepShell
-      step={6}
+      step={9}
       title="Optional skills"
       subtitle="Core skills install automatically. These are extras — each one was built to solve a specific problem. Pick what fits your workflow."
       onNext={onNext}
@@ -1492,6 +2120,82 @@ function SkillsStep({
   );
 }
 
+function DeferredModulesStep({
+  config,
+  setConfig,
+  onNext,
+  onBack,
+}: {
+  config: UserConfig;
+  setConfig: (c: UserConfig) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const modules: {
+    id: keyof UserConfig["interestedModules"];
+    name: string;
+    desc: string;
+  }[] = [
+    {
+      id: "emailSentinel",
+      name: "Email sentinel",
+      desc: "An agent that watches your inboxes every 15 minutes and pages you only for what genuinely can't wait, per rules YOU write. I built this yesterday. It paged me correctly the first day. I want a week on it before you get it.",
+    },
+    {
+      id: "notifications",
+      name: "Notifications",
+      desc: "The system texts your phone when something needs you (Mac + iMessage). Same deal: brand new, want a week.",
+    },
+  ];
+
+  const toggle = (id: keyof UserConfig["interestedModules"]) =>
+    setConfig({
+      ...config,
+      interestedModules: {
+        ...config.interestedModules,
+        [id]: !config.interestedModules[id],
+      },
+    });
+
+  return (
+    <StepShell
+      step={10}
+      title="Coming in your first update"
+      subtitle="I ship improvements as update documents your system applies itself — you're also testing THAT pipeline. Flag what you want first."
+      onNext={onNext}
+      onBack={onBack}
+    >
+      <div className="space-y-3">
+        {modules.map((mod) => (
+          <label
+            key={mod.id}
+            className={`block p-4 rounded-xl border cursor-pointer transition-all ${
+              config.interestedModules[mod.id]
+                ? "border-[#16A34A] bg-[#DCFCE7]/30"
+                : "border-[#E2E8F0] bg-white hover:border-[#94A3B8]"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={config.interestedModules[mod.id]}
+                onChange={() => toggle(mod.id)}
+                className="mt-1 w-5 h-5 rounded accent-[#16A34A]"
+              />
+              <div>
+                <p className="font-semibold text-sm">{mod.name}</p>
+                <p className="text-[#475569] text-sm mt-1 leading-relaxed">
+                  {mod.desc}
+                </p>
+              </div>
+            </div>
+          </label>
+        ))}
+      </div>
+    </StepShell>
+  );
+}
+
 function BucketsStep({
   config,
   setConfig,
@@ -1525,7 +2229,7 @@ function BucketsStep({
 
   return (
     <StepShell
-      step={7}
+      step={11}
       title="Life buckets"
       subtitle=""
       onNext={onNext}
@@ -1642,7 +2346,7 @@ function ContextSourcesStep({
 
   return (
     <StepShell
-      step={8}
+      step={12}
       title="Populate your Obsidian vault"
       subtitle=""
       onNext={onNext}
@@ -1724,7 +2428,7 @@ function ReviewStep({
 
   return (
     <StepShell
-      step={9}
+      step={13}
       title="Review your setup"
       subtitle="Here's what we'll configure. You can go back and change anything."
       onNext={onNext}
@@ -1773,6 +2477,12 @@ function ReviewStep({
             value: config.businessPersonalSplit ? "Yes" : "No",
           },
           {
+            label: "GitHub",
+            value: config.github.hasAccount
+              ? config.github.username || "Account, username not set"
+              : "No account yet",
+          },
+          {
             label: "Task system",
             value:
               config.taskSystem === "other"
@@ -1782,11 +2492,40 @@ function ReviewStep({
                   : "Todoist",
           },
           {
+            label: "Dictation",
+            value:
+              config.dictation.choice === "other"
+                ? config.dictation.other || "Other"
+                : config.dictation.choice === "skip"
+                  ? "Not now"
+                  : DICTATION_OPTIONS.find((o) => o.id === config.dictation.choice)
+                      ?.name || "—",
+          },
+          {
+            label: "Financial tools",
+            value:
+              config.financialInterest === "yes"
+                ? "Interested"
+                : config.financialInterest === "no"
+                  ? "Keeping finances out"
+                  : "Deciding during setup",
+          },
+          {
             label: "Optional skills",
             value:
               selectedSkills.length > 0
                 ? selectedSkills.map((s) => s.name).join(", ")
                 : "None selected",
+          },
+          {
+            label: "Interested in",
+            value:
+              [
+                config.interestedModules.emailSentinel && "Email sentinel",
+                config.interestedModules.notifications && "Notifications",
+              ]
+                .filter(Boolean)
+                .join(", ") || "Neither for now",
           },
           {
             label: "Life buckets",
@@ -1843,7 +2582,7 @@ function ExportStep({
 
   return (
     <StepShell
-      step={10}
+      step={14}
       title="You're ready"
       subtitle="Your config is generated. Here's what to do next."
       onNext={() => {}}
@@ -1957,7 +2696,7 @@ function ExportStep({
 }
 
 export default function Home() {
-  const [step, setStep] = useState(-3);
+  const [step, setStep] = useState(-5);
   const [config, setConfig] = useState<UserConfig>(DEFAULT_CONFIG);
 
   const next = () => {
@@ -1970,6 +2709,17 @@ export default function Home() {
 
   return (
     <main className="flex-1 flex flex-col px-6 py-8 sm:px-8 lg:px-12 min-h-screen">
+      {step === -5 && (
+        <DisclaimerStep config={config} setConfig={setConfig} onNext={next} />
+      )}
+      {step === -4 && (
+        <CostGateStep
+          config={config}
+          setConfig={setConfig}
+          onNext={next}
+          onBack={back}
+        />
+      )}
       {step === -3 && <WelcomeStep onNext={next} />}
       {step === -2 && <ConceptStep onNext={next} onBack={back} />}
       {step === -1 && (
@@ -2021,7 +2771,7 @@ export default function Home() {
         />
       )}
       {step === 5 && (
-        <TaskSystemStep
+        <GitHubStep
           config={config}
           setConfig={setConfig}
           onNext={next}
@@ -2029,7 +2779,7 @@ export default function Home() {
         />
       )}
       {step === 6 && (
-        <SkillsStep
+        <TaskSystemStep
           config={config}
           setConfig={setConfig}
           onNext={next}
@@ -2037,7 +2787,7 @@ export default function Home() {
         />
       )}
       {step === 7 && (
-        <BucketsStep
+        <DictationStep
           config={config}
           setConfig={setConfig}
           onNext={next}
@@ -2045,7 +2795,7 @@ export default function Home() {
         />
       )}
       {step === 8 && (
-        <ContextSourcesStep
+        <FinancialStep
           config={config}
           setConfig={setConfig}
           onNext={next}
@@ -2053,9 +2803,41 @@ export default function Home() {
         />
       )}
       {step === 9 && (
+        <SkillsStep
+          config={config}
+          setConfig={setConfig}
+          onNext={next}
+          onBack={back}
+        />
+      )}
+      {step === 10 && (
+        <DeferredModulesStep
+          config={config}
+          setConfig={setConfig}
+          onNext={next}
+          onBack={back}
+        />
+      )}
+      {step === 11 && (
+        <BucketsStep
+          config={config}
+          setConfig={setConfig}
+          onNext={next}
+          onBack={back}
+        />
+      )}
+      {step === 12 && (
+        <ContextSourcesStep
+          config={config}
+          setConfig={setConfig}
+          onNext={next}
+          onBack={back}
+        />
+      )}
+      {step === 13 && (
         <ReviewStep config={config} onNext={next} onBack={back} />
       )}
-      {step === 10 && <ExportStep config={config} onBack={back} />}
+      {step === 14 && <ExportStep config={config} onBack={back} />}
     </main>
   );
 }

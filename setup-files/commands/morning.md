@@ -113,7 +113,7 @@ Morning is deliberately light. The following are NOT part of the launchpad:
 - Brain-dump processing and routing
 - Full toolbox reminder and system deep scan
 
-These belong to deeper triage and weekly-review rituals you can add later (see the `/midday` and `/weekly` stubs). Keeping them out is what makes morning fast.
+Full triage happens in `/shutdown`'s inbox-processing step, or in a `/midday` ritual you can add later if mornings start feeling crowded. `/weekly` is where the heavier stuff (bucket audit, commitment integrity) gets reviewed on your own cadence. Keeping all of that out of morning is what makes it fast.
 
 
 ## Tone

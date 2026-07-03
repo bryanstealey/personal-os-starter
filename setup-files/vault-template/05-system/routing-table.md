@@ -11,12 +11,12 @@ Every input to your system follows one pattern: **capture at the point of occurr
 
 | Input Type | Capture Point | Canonical Location | Verify Step | Alert Channel |
 |---|---|---|---|---|
-| Brain dump capture | `00-inbox/brain-dump.md` | Routed per shutdown routing rules | Shutdown / midday ritual | Ritual surfacing |
+| Brain dump capture | `00-inbox/brain-dump.md` | Routed per shutdown routing rules | Shutdown ritual | Ritual surfacing |
 | Calendar event | Google Calendar API | Calendar (external) | `calendar-day-verify` hook (writes) + morning (reads) | Hook deny (writes) / morning ritual (reads) |
-| Email (inbound) | Gmail API via `gws` | Surfaced in midday triage | Midday triage | Midday ritual |
+| Email (inbound) | Gmail API via `gws` | Surfaced narrowly in morning's priority scan | Morning ritual (narrow scan, not full triage) | Morning ritual |
 | Task (from task system) | Task system API | Task system (external) | Morning / shutdown reconciliation | Morning ritual |
 | Vault file edit | Edit/Write tool | Vault `.md` files | `obsidian-lint` hook (frontmatter + links) | Hook additionalContext |
-| Correction event | User states correction | Authoritative vault file + `corrections.jsonl` | Overnight / weekly review | Ritual surfacing |
+| Correction event | User states correction | Authoritative vault file + `corrections.jsonl` | Weekly review | Ritual surfacing |
 | Signal file | External process writes to `00-inbox/signals/` | Routed to bucket manifest | Shutdown processing | Shutdown ritual |
 | Decision (consequential) | Session conversation | Bucket manifest + `06-self/decisions.md` | Weekly review | Weekly review |
 

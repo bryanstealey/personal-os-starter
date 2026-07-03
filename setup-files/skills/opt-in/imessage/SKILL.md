@@ -61,8 +61,8 @@ Once installed, these MCP tools are available:
 To use texting-yourself as a capture channel:
 
 1. Find the chat ID for your own "note to self" thread with `im_chats`.
-2. During a ritual (e.g. `/midday` or `/shutdown`), read new messages from that chat
-   with `im_messages`.
+2. During a ritual (e.g. `/shutdown`, or whatever custom triage ritual you add
+   later), read new messages from that chat with `im_messages`.
 3. Route captured items into the vault inbox per the routing table.
 
 Pin the self-thread chat ID in your vault CLAUDE.md so the ritual doesn't have to

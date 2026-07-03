@@ -1,0 +1,339 @@
+#!/usr/bin/env bash
+# ob — Obsidian vault CLI
+#
+# Headless, vault-aware search and graph CLI. Built for this kit fresh — no
+# dependency on Obsidian.app being open, no Obsidian REST plugin, no
+# hardcoded vault name. Pure filesystem: parses [[wikilinks]] and frontmatter
+# directly out of the vault's .md files.
+#
+# Prefers ripgrep (`brew install ripgrep`) when present for speed; falls back
+# to find + grep + sed + awk otherwise, so it degrades gracefully on a
+# machine that never got ripgrep installed.
+#
+# Portable bash (works on macOS's shipped bash 3.2 and on bash 5 under
+# Linux/WSL). No associative arrays, no bash-4-only syntax — matches the
+# discipline in setup-files/scripts/system-health.
+#
+# Vault path resolution:
+#   1. $OB_VAULT env var, if set — always wins, useful for testing or
+#      pointing at a second vault.
+#   2. The literal token below. The install step (SETUP.md) substitutes it
+#      with the user's real vault path the same way it substitutes
+#      {{systemName}} into nightly-backup and system-health: a plain
+#      `sed -i '' "s#{{vaultPath}}#$HOME/<system-name>#g" ~/.local/bin/ob`.
+#      Until that substitution runs, the token is left literal on purpose —
+#      require_vault() below detects that case and explains it rather than
+#      failing on a mysterious "directory not found: {{vaultPath}}".
+
+set -euo pipefail
+
+# NOTE: deliberately NOT written as `VAULT_DIR="${OB_VAULT:-{{vaultPath}}}"`.
+# Bash's brace-matching for `${VAR:-word}` counts ALL braces in `word`, not
+# just `${`-prefixed ones — a literal `{{vaultPath}}` inside the default
+# clause corrupts the expansion (verified: with $OB_VAULT set, the result
+# gets stray trailing `}` characters appended). Two-step assignment avoids
+# the footgun entirely.
+VAULT_DIR="${OB_VAULT:-}"
+if [ -z "$VAULT_DIR" ]; then
+  VAULT_DIR='{{vaultPath}}'
+fi
+
+HAVE_RG=0
+if command -v rg >/dev/null 2>&1; then
+  HAVE_RG=1
+fi
+
+usage() {
+  cat <<EOF
+ob — Obsidian vault CLI
+
+Usage:
+  ob search <query> [path=<subdir>]   Search vault contents (smart-case)
+  ob backlinks <file>                 Notes that link to <file>
+  ob links <file>                     Notes that <file> links out to
+  ob orphans                          Person files with no outgoing links,
+                                       and files with no incoming links
+  ob unresolved                       [[links]] that point at no real file
+  ob tags                             All #tags in the vault, with counts
+  ob help                             Show this help
+
+Accepts key=value shorthand for compat: \`ob search query=foo\`,
+\`ob backlinks file=foo\`, \`ob links file=foo\`.
+
+Vault: ${VAULT_DIR}
+Engine: $([ "$HAVE_RG" -eq 1 ] && echo "ripgrep" || echo "grep/find (ripgrep not found)")
+
+Vault path comes from \$OB_VAULT if set, otherwise from the path baked in at
+install time. Override for a one-off: OB_VAULT=~/other-vault ob search foo
+EOF
+}
+
+require_vault() {
+  if [ "$VAULT_DIR" = "{{vaultPath}}" ]; then
+    echo "Vault path not configured." >&2
+    echo "Set \$OB_VAULT (e.g. OB_VAULT=~/myvault ob search foo), or if you're" >&2
+    echo "running an installed copy, the setup step should have substituted" >&2
+    echo "{{vaultPath}} with your real vault directory and didn't." >&2
+    exit 1
+  fi
+  if [ ! -d "$VAULT_DIR" ]; then
+    echo "Vault directory not found: $VAULT_DIR" >&2
+    echo "Set \$OB_VAULT to override, e.g.: OB_VAULT=~/myvault ob search foo" >&2
+    exit 1
+  fi
+}
+
+# Print one path per line for every .md file in the vault, skipping .git and
+# .obsidian (config/plugin internals, not vault content).
+md_files() {
+  local scope="${1:-$VAULT_DIR}"
+  find "$scope" -type f -name '*.md' \
+    -not -path '*/.git/*' -not -path '*/.obsidian/*' 2>/dev/null
+}
+
+# Strip a leading "file=" / "query=" / "path=" prefix some callers pass
+# (key=value compat with Bryan's original ob).
+strip_kv() {
+  local s="$1"
+  s="${s#file=}"
+  s="${s#query=}"
+  s="${s#path=}"
+  printf '%s' "$s"
+}
+
+# Resolve a user-supplied file reference ("foo", "foo.md", a relative path)
+# to a full path inside the vault. Case-sensitive first, case-insensitive
+# fallback (filenames are assumed unique per the vault's shortest-path
+# wikilink convention).
+resolve_file() {
+  local ref base hit
+  ref="$(strip_kv "$1")"
+  base="$(basename "$ref" .md)"
+  # `|| true` guards against the classic `cmd | head -1` + pipefail trap:
+  # if find has more than one match, head closes the pipe early and find
+  # gets SIGPIPE, which pipefail reports as a failure and set -e would
+  # otherwise treat as fatal — even though "found one match" is success.
+  hit="$(find "$VAULT_DIR" -type f -name "${base}.md" \
+    -not -path '*/.git/*' -not -path '*/.obsidian/*' 2>/dev/null | head -1 || true)"
+  if [ -z "$hit" ]; then
+    hit="$(find "$VAULT_DIR" -type f -iname "${base}.md" \
+      -not -path '*/.git/*' -not -path '*/.obsidian/*' 2>/dev/null | head -1 || true)"
+  fi
+  printf '%s' "$hit"
+}
+
+# Extract wikilink targets from one file, one per line, trimmed. Handles
+# [[target]], [[target|alias]], and [[target#heading]] forms — target is
+# everything up to the first |, #, or closing ].
+extract_targets() {
+  local file="$1"
+  # Trailing `|| true` matters: rg/grep exit 1 on "no matches", and under
+  # `set -e` + `set -o pipefail` that would kill the whole script on any
+  # file with zero wikilinks — the exact case `orphans` needs to detect.
+  if [ "$HAVE_RG" -eq 1 ]; then
+    rg --only-matching --no-line-number --no-filename \
+      '\[\[([^\]|#]+)' --replace '$1' -- "$file" 2>/dev/null \
+      | sed -E 's/^ +//; s/ +$//' || true
+  else
+    grep -oE '\[\[[^]]+' "$file" 2>/dev/null \
+      | sed -E 's/^\[\[//; s/[|#].*$//; s/^ +//; s/ +$//' || true
+  fi
+}
+
+# Extract every wikilink target across the whole vault (or a scope dir),
+# one per line, NOT deduped — caller sorts/uniques as needed. Also usable
+# for tallying which files reference a given target via grep afterward.
+extract_targets_all() {
+  local scope="${1:-$VAULT_DIR}"
+  # Same `|| true` reasoning as extract_targets() — a scope with no
+  # wikilinks at all is a valid (if unusual) state, not a script error.
+  if [ "$HAVE_RG" -eq 1 ]; then
+    rg --type md --no-heading --no-filename --only-matching \
+      '\[\[([^\]|#]+)' --replace '$1' "$scope" 2>/dev/null \
+      | sed -E 's/^ +//; s/ +$//' || true
+  else
+    while IFS= read -r f; do
+      extract_targets "$f"
+    done < <(md_files "$scope")
+  fi
+}
+
+# True if a file's frontmatter has `type: person` (with or without quotes).
+is_person_file() {
+  local file="$1"
+  awk '
+    NR == 1 && $0 == "---" { infm = 1; next }
+    infm && $0 == "---" { exit }
+    infm && $0 ~ /^type:/ { print; exit }
+  ' "$file" | grep -qi 'person'
+}
+
+cmd="${1:-help}"
+[ $# -gt 0 ] && shift || true
+
+case "$cmd" in
+  search)
+    require_vault
+    if [ $# -eq 0 ]; then echo "Usage: ob search <query> [path=<subdir>]" >&2; exit 1; fi
+    scope="$VAULT_DIR"
+    query_parts=()
+    for arg in "$@"; do
+      case "$arg" in
+        path=*)
+          subdir="${arg#path=}"
+          scope="$VAULT_DIR/$subdir"
+          ;;
+        *)
+          query_parts+=("$(strip_kv "$arg")")
+          ;;
+      esac
+    done
+    query="${query_parts[*]:-}"
+    if [ -z "$query" ]; then echo "Usage: ob search <query> [path=<subdir>]" >&2; exit 1; fi
+    case "$scope" in
+      "$VAULT_DIR"|"$VAULT_DIR"/*) ;;
+      *) echo "path= must stay inside the vault: $scope" >&2; exit 1 ;;
+    esac
+    if [ ! -d "$scope" ]; then echo "Path not found in vault: $scope" >&2; exit 1; fi
+    if [ "$HAVE_RG" -eq 1 ]; then
+      out="$(rg --type md --smart-case --color never --no-heading --with-filename -- "$query" "$scope" 2>/dev/null || true)"
+    else
+      grep_flags=(-r -I -n --include=*.md)
+      if ! printf '%s' "$query" | grep -q '[A-Z]'; then
+        grep_flags+=(-i)
+      fi
+      out="$(grep "${grep_flags[@]}" -- "$query" "$scope" 2>/dev/null \
+        | grep -vE '/\.(git|obsidian)/' || true)"
+    fi
+    if [ -z "$out" ]; then
+      echo "No matches for \"$query\" in $scope"
+    else
+      printf '%s\n' "$out"
+    fi
+    ;;
+
+  backlinks)
+    require_vault
+    if [ $# -eq 0 ]; then echo "Usage: ob backlinks <file>" >&2; exit 1; fi
+    base="$(basename "$(strip_kv "$1")" .md)"
+    pattern="\\[\\[${base}([|#]|\\]\\])"
+    if [ "$HAVE_RG" -eq 1 ]; then
+      out="$(rg --type md --color never --no-heading --with-filename -- "$pattern" "$VAULT_DIR" 2>/dev/null || true)"
+    else
+      out="$(md_files | xargs -I{} grep -nE -- "$pattern" {} 2>/dev/null || true)"
+    fi
+    if [ -z "$out" ]; then
+      echo "No backlinks found for $base"
+    else
+      printf '%s\n' "$out"
+    fi
+    ;;
+
+  links)
+    require_vault
+    if [ $# -eq 0 ]; then echo "Usage: ob links <file>" >&2; exit 1; fi
+    fullpath="$(resolve_file "$1")"
+    if [ -z "$fullpath" ]; then echo "File not found in vault: $1" >&2; exit 1; fi
+    out="$(extract_targets "$fullpath" | sort -u)"
+    if [ -z "$out" ]; then
+      echo "No outgoing links found in $(basename "$fullpath")"
+    else
+      printf '%s\n' "$out"
+    fi
+    ;;
+
+  orphans)
+    require_vault
+    echo "== Person files with no outgoing links =="
+    found_person=0
+    while IFS= read -r f; do
+      is_person_file "$f" || continue
+      targets="$(extract_targets "$f")"
+      if [ -z "$targets" ]; then
+        echo "${f#"$VAULT_DIR"/}"
+        found_person=1
+      fi
+    done < <(md_files)
+    [ "$found_person" -eq 0 ] && echo "(none)"
+
+    echo ""
+    echo "== Files with no incoming links =="
+    all_targets_file="$(mktemp)"
+    trap 'rm -f "$all_targets_file"' EXIT
+    extract_targets_all | sort -u > "$all_targets_file"
+    found_unlinked=0
+    while IFS= read -r f; do
+      base="$(basename "$f" .md)"
+      if ! grep -qxF "$base" "$all_targets_file"; then
+        echo "${f#"$VAULT_DIR"/}"
+        found_unlinked=1
+      fi
+    done < <(md_files)
+    [ "$found_unlinked" -eq 0 ] && echo "(none)"
+    rm -f "$all_targets_file"
+    trap - EXIT
+    ;;
+
+  unresolved)
+    require_vault
+    targets_file="$(mktemp)"
+    trap 'rm -f "$targets_file"' EXIT
+    extract_targets_all | sort -u > "$targets_file"
+    found=0
+    while IFS= read -r link; do
+      [ -z "$link" ] && continue
+      # Wikilinks can point at non-.md attachments too (image/PDF embeds
+      # via [[foo.png]] or ![[foo.png]]) — only append .md when the target
+      # doesn't already carry a file extension, so embeds aren't reported
+      # as broken note links.
+      if printf '%s' "$link" | grep -qE '\.[A-Za-z0-9]{2,5}$'; then
+        lookup_name="$link"
+      else
+        lookup_name="${link}.md"
+      fi
+      hit="$(find "$VAULT_DIR" -type f -name "$lookup_name" \
+        -not -path '*/.git/*' -not -path '*/.obsidian/*' 2>/dev/null | head -1 || true)"
+      if [ -z "$hit" ]; then
+        link_pattern="\\[\\[${link}([|#]|\\]\\])"
+        refs="$(
+          while IFS= read -r rf; do
+            printf '%s\n' "${rf#"$VAULT_DIR"/}"
+          done < <(md_files | xargs -I{} grep -lE -- "$link_pattern" {} 2>/dev/null) \
+          | sort -u \
+          | awk '{printf "%s%s", sep, $0; sep=", "}'
+        )"
+        echo "${link}  (referenced in: ${refs:-unknown})"
+        found=1
+      fi
+    done < "$targets_file"
+    [ "$found" -eq 0 ] && echo "No unresolved links found."
+    rm -f "$targets_file"
+    trap - EXIT
+    ;;
+
+  tags)
+    require_vault
+    if [ "$HAVE_RG" -eq 1 ]; then
+      out="$(rg --type md --no-heading --no-filename --only-matching '#[A-Za-z][A-Za-z0-9_/-]*' "$VAULT_DIR" 2>/dev/null || true)"
+    else
+      out="$(md_files | xargs -I{} grep -ohE '#[A-Za-z][A-Za-z0-9_/-]*' {} 2>/dev/null || true)"
+    fi
+    out="$(printf '%s\n' "$out" | grep -vE '^#[0-9A-Fa-f]{6}$' | grep -v '^$' || true)"
+    if [ -z "$out" ]; then
+      echo "No tags found."
+    else
+      printf '%s\n' "$out" | sort | uniq -c | sort -rn
+    fi
+    ;;
+
+  help|-h|--help)
+    usage
+    ;;
+
+  *)
+    echo "Unknown command: $cmd" >&2
+    echo "" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

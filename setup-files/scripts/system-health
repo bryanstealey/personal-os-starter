@@ -20,13 +20,18 @@ ISSUES=()
 #   nightly-backup — written by ~/.local/bin/nightly-backup after each run
 #   morning        — written by the /morning ritual at completion
 #   shutdown       — written by the /shutdown ritual at completion
-# /midday and /weekly ship as stubs in this kit and write no heartbeat yet,
-# so they are intentionally absent. Add them here once those rituals exist
-# and write their own heartbeat.
+#   weekly         — written by the /weekly ritual at completion. It ships with
+#                    no fixed schedule (the user sets their own cadence), so its
+#                    max_age is generous — flag it only if it's gone quiet for
+#                    well over a typical week, not on the first missed day.
+# /midday is not shipped in this kit at all — there is no heartbeat to track
+# until someone adds that ritual themselves. Add a line here (and a writer in
+# the ritual) if you build it.
 COMPONENTS="
 nightly-backup 26
 morning 36
 shutdown 48
+weekly 240
 "
 
 COMPONENT_COUNT=0
