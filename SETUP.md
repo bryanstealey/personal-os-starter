@@ -827,20 +827,48 @@ Update setup-state: step 14 complete.
 
 "Rituals are the heartbeat of your system. v1 ships three: **`/morning`** (orient and go), **`/shutdown`** (close the day, set tomorrow's first move), and **`/weekly`** (the anchor review — bucket audit, commitment integrity, the focusing question, calendar design for the week ahead). There's no `/midday` — that's a pattern some people add later, once morning starts feeling crowded with triage that doesn't belong there."
 
-Read `morning.md`, `shutdown.md`, and `weekly.md` from `setup-files/commands/`. For each, replace all `{{PLACEHOLDER}}` markers with the user's actual values:
+Read `morning.md`, `shutdown.md`, and `weekly.md` from `setup-files/commands/`.
 
-- `{{USER_NAME}}` — from config
-- `{{SYSTEM_NAME}}` — `{{systemName}}` from config
+**Before substituting anything, grep the actual files for their tokens** — trust the
+files, not this table, if they ever disagree:
+
+```bash
+grep -ohE '\{\{[A-Za-z_]+\}\}' setup-files/commands/{morning,shutdown,weekly}.md | sort -u
+```
+
+Replace every token found with the user's actual values. The complete token set as
+of this build (9 tokens — if your grep shows one this list lacks, substitute it by
+its evident meaning and log it as a doc bug in setup-state):
+
+- `{{USER_NAME}}` — the user's FIRST name from config (`userName` may hold a full
+  name — use only the first word; it's interpolated into conversational text)
+- `{{systemName}}` — from config, **lowercase exactly as written here**. It appears
+  inside heartbeat-write paths (`$HOME/.{{systemName}}-health/...`) in all three
+  templates — a missed substitution here means heartbeats write to a literal
+  nonexistent directory forever and `system-health` reports it stale. Verify after
+  substitution: `grep -c '{{' <each filled file>` must return 0.
 - `{{CALENDAR_COMMAND}}` — `calendar-agenda` (from Section 13)
 - `{{TASK_SYSTEM}}` — "Todoist" / "Google Tasks" / `taskSystemOther`
-- `{{TASK_QUERY_COMMAND}}` — command to list tasks (e.g. `todoist-query` or `gws tasks tasks list`)
+- `{{TASK_QUERY_COMMAND}}` — command to list tasks (`todoist-query '<filter>'` if
+  Todoist — installed in Section 14 — or `gws tasks tasks list`)
+- `{{TASK_QUERY_TODAY}}` — command to fetch today's tasks (e.g.
+  `todoist-query 'filter=today'`)
 - `{{TASK_CREATE_COMMAND}}` — command to create a task
-- `{{TASK_CREATE_INSTRUCTIONS}}` — a short block telling Claude HOW to create an approved task with the user's task system: the actual command/syntax (built from `{{TASK_CREATE_COMMAND}}`), where new tasks land (e.g. the inbox/project), and the rule to only create after explicit approval. Used in `morning.md`. If the task system needs no special instructions, replace it with a one-line note such as "Create approved tasks with `{{TASK_CREATE_COMMAND}}`."
-- `{{TASK_QUERY_TODAY}}` — command to fetch today's tasks
-- `{{EMAIL_TRIAGE_COMMANDS}}` — `gws gmail +triage` for each configured account (primary `gws`, plus each `gws-{{alias}}`)
+- `{{TASK_CREATE_INSTRUCTIONS}}` — a short block telling Claude HOW to create an
+  approved task with the user's task system: the actual command/syntax (built from
+  `{{TASK_CREATE_COMMAND}}`), where new tasks land (e.g. the inbox/project), and the
+  rule to only create after explicit approval. Used in `morning.md`. If the task
+  system needs no special instructions, replace it with a one-line note such as
+  "Create approved tasks with `{{TASK_CREATE_COMMAND}}`."
 - `{{GWS_COMMANDS}}` — list of gws aliases (e.g. `gws`, `gws-work`)
-- `{{BUCKET_CATEGORIES}}` — the user's buckets in their natural groupings
-- `{{BUCKETS}}` — flat list of bucket names
+
+**Create the heartbeat directory now** — the rituals write heartbeats to it, and the
+user runs their first real `/morning` in Section 22, well before the health tooling
+lands in Section 24:
+
+```bash
+mkdir -p ~/.{{systemName}}-health
+```
 
 **Strip any references** in the templates to metabolism, overnight-analysis, name-registry, or corrections — those are v2 machinery not installed here. Each ritual's email-triage step should restate the **CLI-primary / MCP-fallback** rule.
 
@@ -870,7 +898,12 @@ Update setup-state: step 15 complete.
 
 > This is moved early on purpose. Don't bury the "it knows me" moment behind plumbing — but we run it now that the vault and CLAUDE.md scaffold exist.
 
-Read `contextSources` from the config.
+`contextSources` in the config may be empty — the web app deliberately does not
+collect this anymore. **Gather it live, here, in conversation**: ask your user
+what already holds context about their life and work — old AI chats, Apple Notes
+(readable directly if synced to this Mac), Google Drive, notes apps, email. You
+can reach most of these yourself; nothing needs pre-exporting. Then run the paths
+below for whatever they name (and Section 17's guided population goes deeper).
 
 ### If the user has existing context (ChatGPT/Claude/Gemini chats, notes, docs):
 
@@ -880,14 +913,14 @@ Guide a quick extraction:
 
 Then process the inbox — read each file, propose a bucket, get approval, and route it.
 
-**Calendar / email / tasks** (only if selected in `contextSources`):
+**Calendar / email / tasks** (offer these to everyone):
 - "I can scan your recent calendar for recurring meetings and people you meet with often — want me to?"
 - "I can scan recent emails for your most frequent contacts and active threads — want me to?"
 - "I can pull your existing {{taskSystem}} tasks and organize them by bucket — want me to?"
 
 Do the work — read the data, propose routing, get approval, write to the vault. Don't just describe it.
 
-### If `contextSources` is empty or thin — interview mode:
+### If the conversation surfaces little to work with — interview mode:
 
 Don't leave the vault empty. Ask a short, conversational question set (one at a time) and write the answers into the vault as you go:
 

@@ -1,0 +1,59 @@
+#!/bin/bash
+# todoist-query — paginated Todoist task reader.
+#
+# Why this exists: Todoist's REST API silently truncates task lists at 50 per
+# page. A raw one-shot curl looks complete and isn't — tasks quietly vanish
+# from view. This wrapper follows next_cursor until the list is exhausted, so
+# what you see is actually everything.
+#
+# Usage:
+#   todoist-query 'filter=today'            any Todoist filter expression
+#   todoist-query 'filter=overdue'
+#   todoist-query 'project_id=<ID>'         raw query params pass through
+#   todoist-query                           all active tasks
+#
+# Requires: TODOIST_API_TOKEN in the environment (set during setup), jq, curl.
+# Output: one JSON array of task objects on stdout.
+
+set -euo pipefail
+
+if [ -z "${TODOIST_API_TOKEN:-}" ]; then
+  echo "TODOIST_API_TOKEN is not set. It should be exported from your shell rc" >&2
+  echo "file (added during setup, Section 14). Open a new terminal or run:" >&2
+  echo "  source ~/.zshrc" >&2
+  exit 1
+fi
+
+for dep in jq curl; do
+  if ! command -v "$dep" >/dev/null 2>&1; then
+    echo "todoist-query needs $dep and it isn't installed." >&2
+    exit 1
+  fi
+done
+
+QUERY="${1:-}"
+BASE="https://api.todoist.com/api/v1/tasks"
+
+results='[]'
+cursor=""
+
+while :; do
+  url="$BASE?limit=200"
+  [ -n "$QUERY" ] && url="$url&$QUERY"
+  [ -n "$cursor" ] && url="$url&cursor=$cursor"
+
+  page=$(curl -sf -H "Authorization: Bearer $TODOIST_API_TOKEN" "$url") || {
+    echo "Todoist API request failed (network or auth). Check your token." >&2
+    exit 1
+  }
+
+  # v1 API returns {"results": [...], "next_cursor": ...}; tolerate a bare
+  # array too in case of API shape drift.
+  batch=$(printf '%s' "$page" | jq 'if type == "array" then . else (.results // []) end')
+  results=$(jq -n --argjson a "$results" --argjson b "$batch" '$a + $b')
+
+  cursor=$(printf '%s' "$page" | jq -r 'if type == "object" then (.next_cursor // empty) else empty end')
+  [ -z "$cursor" ] && break
+done
+
+printf '%s\n' "$results" | jq .

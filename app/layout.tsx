@@ -13,9 +13,9 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Personal OS Setup — Morgantown AI",
+  title: "Cortex — Personal Operating System · Morgantown AI",
   description:
-    "Build your personal operating system with Obsidian, Claude Code, and your terminal.",
+    "A command center for your life, built on your computer and your actual tools. Set up by Bryan Stealey's install kit — driven by your own AI.",
 };
 
 export default function RootLayout({
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${jakarta.variable} ${jetbrains.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#FAFAFA] text-[#1A1A1A] font-sans">
+      <body className="min-h-full flex flex-col bg-paper text-ink font-sans">
         {children}
       </body>
     </html>

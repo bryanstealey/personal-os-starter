@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Installer payload — skills, commands, and their tooling (Python venvs,
+    // vendored JS). Not app source; must never gate the app's lint.
+    "setup-files/**",
   ]),
 ]);
 

@@ -69,11 +69,16 @@ EOF
 }
 
 require_vault() {
-  if [ "$VAULT_DIR" = "{{vaultPath}}" ]; then
-    echo "Vault path not configured." >&2
-    echo "Set \$OB_VAULT (e.g. OB_VAULT=~/myvault ob search foo), or if you're" >&2
-    echo "running an installed copy, the setup step should have substituted" >&2
-    echo "{{vaultPath}} with your real vault directory and didn't." >&2
+  # Unsubstituted-install detection: the install-time sed replaces the full
+  # vaultPath token everywhere in this file, so we must NOT compare against
+  # that token here (post-install it would equal the real path and this
+  # check would always fire — that bug shipped once). A bare '{{' substring
+  # is not a sed target and survives substitution, so it only ever appears
+  # if the install step was skipped.
+  if printf '%s' "$VAULT_DIR" | grep -q '{{'; then
+    echo "Vault path not configured (install-time substitution never ran)." >&2
+    echo "Set \$OB_VAULT (e.g. OB_VAULT=~/myvault ob search foo), or re-run" >&2
+    echo "the ob install step from SETUP.md Section 18." >&2
     exit 1
   fi
   if [ ! -d "$VAULT_DIR" ]; then
