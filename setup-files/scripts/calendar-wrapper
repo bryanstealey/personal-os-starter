@@ -90,9 +90,31 @@ def time_range(args):
     return start.isoformat(), end.isoformat()
 
 
-def fetch(cmd, t_min, t_max):
+def list_calendars(cmd):
+    """Return [(cal_id, summary, is_primary)] for calendars the user owns or can
+    write to. Excludes read-only subscriptions (holidays, sports, view-only shares)
+    so they don't clutter the agenda, while catching real shared/secondary
+    calendars (family, work) the user participates in. Falls back to just the
+    primary calendar on any error."""
+    fallback = [("primary", None, True)]
+    try:
+        result = subprocess.run(
+            [cmd, "calendar", "calendarList", "list", "--params", "{}", "--format", "json"],
+            capture_output=True, text=True, timeout=30,
+        )
+        data = json.loads(result.stdout)
+    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return fallback
+    cals = []
+    for c in data.get("items", []):
+        if c.get("accessRole") in ("owner", "writer"):
+            cals.append((c.get("id", "primary"), c.get("summary", ""), bool(c.get("primary"))))
+    return cals or fallback
+
+
+def fetch(cmd, cal_id, t_min, t_max):
     params = json.dumps({
-        "calendarId": "primary",
+        "calendarId": cal_id,
         "timeMin": t_min,
         "timeMax": t_max,
         "singleEvents": True,
@@ -190,9 +212,17 @@ def main():
     self_emails = get_self_emails(accounts)
     t_min, t_max = time_range(args)
     events = []
+    seen = set()
     for cmd, cal_name in accounts:
-        for raw in fetch(cmd, t_min, t_max):
-            events.append(format_event(raw, cal_name, self_emails))
+        for cal_id, cal_summary, is_primary in list_calendars(cmd):
+            label = cal_name if is_primary else (cal_summary or cal_name)
+            for raw in fetch(cmd, cal_id, t_min, t_max):
+                key = raw.get("iCalUID") or raw.get("id")
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                events.append(format_event(raw, label, self_emails))
     events.sort(key=lambda e: e["start"])
     if args.format == "json":
         json.dump(events, sys.stdout, indent=2)

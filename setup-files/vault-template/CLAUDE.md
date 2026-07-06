@@ -78,6 +78,12 @@ reason to change them — your assistant relies on them on every vault touch.*
   you'd do by a date. Everything else, the backlog, lives in your knowledge
   base instead. The date, not the project, is the organizing principle for
   what belongs in a task system at all.
+- **Report "I couldn't" and "I chose not to" as the different things they
+  are.** A discretionary skip is not a failure. When a step has an escape
+  hatch and you take it, say you took it and why ("no vault configured, so I
+  skipped that") — don't phrase a deliberate choice as an inability ("that
+  folder doesn't exist"), which reads as a hard block when nothing was blocked.
+  Same rule in reverse: don't dress up a real failure as a choice.
 - **This system worked daily for three months before it became what you're
   looking at now.** Yours will evolve the same way. Don't expect it to be
   finished on install day — expect it to grow the more you actually use it.

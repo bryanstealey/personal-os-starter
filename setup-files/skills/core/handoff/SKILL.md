@@ -115,12 +115,19 @@ After writing the handoff to the project root, copy it to the vault's
 processed inbox for cross-project visibility:
 
 1. Copy to `~/[vault]/00-inbox/processed/` with the project name prepended:
-   `{project-name}_HANDOFF_v##.md`
+   `{project-name}_HANDOFF_v##.md`. If the `00-inbox/processed/` subfolder
+   doesn't exist yet but the vault does, create it (`mkdir -p`) — a missing
+   subfolder is a normal first-run state, not a reason to skip.
 2. Extract durable content (decisions, status changes, new context) and route
    to the appropriate vault locations (bucket manifests, knowledge files, etc.)
 3. Add `[[wiki-links]]` in both directions for any people or projects mentioned
 
-If the vault doesn't exist or the user hasn't set one up yet, skip this step.
+Only skip this step when there is **no vault at all** (the user hasn't set one
+up). A vault that exists but is missing the `processed/` subfolder is NOT a
+reason to skip — create the folder and proceed. When you do skip, report it as
+a deliberate choice ("no vault configured, so I skipped vault integration"),
+never as an inability ("processed/ doesn't exist" reads as a hard block when it
+wasn't one).
 
 ## Step 6 — Save and Report
 
