@@ -68,6 +68,7 @@ SKIP_LIST=(
 
 backed_up=0
 skipped=0
+failed=0
 vault_has_remote=0
 
 for dir in "${BACKUP_DIRS[@]}"; do
@@ -115,10 +116,13 @@ for dir in "${BACKUP_DIRS[@]}"; do
       continue
     fi
     # Pull --rebase to reconcile any remote changes, then push
-    git -C "$dir" pull --rebase origin "$branch" 2>>"$LOG" && \
-      git -C "$dir" push origin "$branch" 2>>"$LOG" && \
-      echo "[$TIMESTAMP] $name: pushed $unpushed unpushed commits" >> "$LOG" || \
+    if git -C "$dir" pull --rebase origin "$branch" 2>>"$LOG" && \
+       git -C "$dir" push origin "$branch" 2>>"$LOG"; then
+      echo "[$TIMESTAMP] $name: pushed $unpushed unpushed commits" >> "$LOG"
+    else
       echo "[$TIMESTAMP] $name: push FAILED (unpushed only)" >> "$LOG"
+      failed=$((failed + 1))
+    fi
     backed_up=$((backed_up + 1))
     continue
   fi
@@ -126,22 +130,30 @@ for dir in "${BACKUP_DIRS[@]}"; do
   # Stage, commit, pull --rebase to reconcile, then push
   git -C "$dir" add -A 2>>"$LOG"
   git -C "$dir" commit -m "Nightly backup: $DATE" 2>>"$LOG"
-  git -C "$dir" pull --rebase origin "$branch" 2>>"$LOG" && \
-    git -C "$dir" push origin "$branch" 2>>"$LOG" && \
-    echo "[$TIMESTAMP] $name: committed $dirty files and pushed" >> "$LOG" || \
+  if git -C "$dir" pull --rebase origin "$branch" 2>>"$LOG" && \
+     git -C "$dir" push origin "$branch" 2>>"$LOG"; then
+    echo "[$TIMESTAMP] $name: committed $dirty files and pushed" >> "$LOG"
+  else
     echo "[$TIMESTAMP] $name: FAILED" >> "$LOG"
+    failed=$((failed + 1))
+  fi
   backed_up=$((backed_up + 1))
 done
 
-echo "[$TIMESTAMP] Nightly backup complete: $backed_up backed up, $skipped skipped (clean or no remote)" >> "$LOG"
+echo "[$TIMESTAMP] Nightly backup complete: $backed_up backed up, $skipped skipped (clean or no remote), $failed FAILED" >> "$LOG"
 
-# Missing-remote detection: if the vault itself has no origin, the backup is
-# doing nothing useful. Surface that to system-health instead of failing
-# silently. We mark the component STALE by NOT writing a fresh success
-# heartbeat, and we drop an .error file describing the problem.
+# HONEST health signal: the success heartbeat is written ONLY when the vault has
+# a remote AND zero repos failed to push. If any push fails — the classic cause is
+# cron being unable to read the keychain credential, so `git push` silently 401s —
+# we do NOT write a green heartbeat. system-health goes stale/red instead of
+# reporting "backed up" over a broken backup. This is the bug that hides silent
+# failures for weeks; do not "simplify" it back to counting attempts as successes.
 if [ "$vault_has_remote" -eq 0 ]; then
   echo "[$TIMESTAMP] WARNING: vault has no git remote — nothing was pushed offsite" >> "$LOG"
   echo "$TIMESTAMP nightly-backup: vault ($VAULT_DIR) has no git 'origin' remote; offsite backup is not happening. Add a remote (GitHub opt-in) or rely on Obsidian Git + Time Machine." > "$HEARTBEAT_DIR/nightly-backup.error"
+elif [ "$failed" -ne 0 ]; then
+  echo "[$TIMESTAMP] WARNING: $failed repo(s) failed to push — NOT writing success heartbeat" >> "$LOG"
+  echo "$TIMESTAMP nightly-backup: $failed repo(s) failed to push offsite; see $LOG. Common cause: cron can't read the keychain credential — use the launchd LaunchAgent (not cron) so git/gh can authenticate." > "$HEARTBEAT_DIR/nightly-backup.error"
 else
   # All good — clear any prior error and write the success heartbeat.
   rm -f "$HEARTBEAT_DIR/nightly-backup.error"

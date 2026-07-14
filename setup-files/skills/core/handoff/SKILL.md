@@ -16,11 +16,15 @@ Determine the project name (directory basename from `pwd`) and the next
 handoff version number.
 
 Search the project root for existing handoffs matching `*HANDOFF*.md`. Find
-the highest version number (`v01`, `v02`, `v03`, ...) and increment by one.
-If no prior handoffs exist, start at `v01`.
+the highest version number (`v0001`, `v0002`, `v0003`, ...) and increment by
+one. If no prior handoffs exist, start at `v0001`. Always render the number
+zero-padded to **four digits** so filenames sort correctly in any listing. If a
+project's existing handoffs use the legacy two-digit format (e.g. `v87`), keep
+incrementing the number and render it four digits wide (the next is `v0088`) —
+don't restart the count and don't renumber the old files.
 
-Filename convention: `[project]_HANDOFF_v##.md` in the project root.
-Examples: `my-project_HANDOFF_v04.md`, `client-site_HANDOFF_v01.md`.
+Filename convention: `[project]_HANDOFF_v####.md` in the project root.
+Examples: `my-project_HANDOFF_v0004.md`, `client-site_HANDOFF_v0001.md`.
 
 The project prefix is part of the filename from creation — not added later
 during routing. This keeps naming unambiguous everywhere the file lives.
@@ -75,7 +79,7 @@ content — no hollow placeholders.
 Markdown structure. Short paragraphs, specific items, scannable.
 
 ```markdown
-# [Project Name] Handoff v##
+# [Project Name] Handoff v####
 
 **Date:** [YYYY-MM-DD, time of day]
 
@@ -115,7 +119,7 @@ After writing the handoff to the project root, copy it to the vault's
 processed inbox for cross-project visibility:
 
 1. Copy to `~/[vault]/00-inbox/processed/` with the project name prepended:
-   `{project-name}_HANDOFF_v##.md`. If the `00-inbox/processed/` subfolder
+   `{project-name}_HANDOFF_v####.md`. If the `00-inbox/processed/` subfolder
    doesn't exist yet but the vault does, create it (`mkdir -p`) — a missing
    subfolder is a normal first-run state, not a reason to skip.
 2. Extract durable content (decisions, status changes, new context) and route
@@ -133,7 +137,7 @@ wasn't one).
 
 Write the file to the project root and report:
 
-> Handoff saved: `my-project_HANDOFF_v04.md`
+> Handoff saved: `my-project_HANDOFF_v0004.md`
 >
 > [One-sentence summary so the user can confirm it captured the right things.]
 

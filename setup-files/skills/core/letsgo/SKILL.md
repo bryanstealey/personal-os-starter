@@ -46,7 +46,7 @@ Collect ALL handoff candidates from every location, then pick the single highest
 2. Vault `00-inbox/processed/` — match files prefixed with the project name (e.g., `my-project_HANDOFF_v03.md`)
 3. Vault `00-inbox/processed/` — also check for cross-project handoffs if the project name has a parent prefix
 
-**Version extraction:** Parse the `_vNN` or `_v##` suffix from each filename. Local files use `HANDOFF_v##.md`; vault processed inbox uses `{project-name}_HANDOFF_v##.md`. Extract the numeric version from either pattern and compare across all matches.
+**Version extraction:** Parse the `_v<number>` suffix from each filename, accepting **any digit width** — current files are four-digit zero-padded (`HANDOFF_v0088.md`) but legacy files may still be two-digit (`HANDOFF_v87.md`), and both can coexist in one project during the transition. Local files use `HANDOFF_v####.md`; vault processed inbox uses `{project-name}_HANDOFF_v####.md`. Extract the numeric value (strip leading zeros) from either pattern and any width, and compare **numerically** — never lexically — across all matches so `v0088` correctly outranks `v87`.
 
 **Pick the single highest version number regardless of which location it came from.** Read that file. Do NOT load multiple handoffs — the newest should contain everything relevant.
 
