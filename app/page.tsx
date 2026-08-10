@@ -16,6 +16,7 @@ interface UserConfig {
   systemName: string;
   preflight: {
     ownTerminal: boolean;
+    homebrew: boolean;
     ghostty: boolean;
     windowsTerminal: boolean;
     wsl: boolean;
@@ -78,6 +79,7 @@ const DEFAULT_CONFIG: UserConfig = {
   systemName: "",
   preflight: {
     ownTerminal: false,
+    homebrew: false,
     ghostty: false,
     windowsTerminal: false,
     wsl: false,
@@ -1033,6 +1035,15 @@ function InstallStep({
   };
 
   const macItems = [
+    {
+      key: "homebrew" as const,
+      name: "Homebrew",
+      install:
+        'command -v brew >/dev/null || /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+      copyable: true,
+      link: "https://brew.sh",
+      desc: "The Mac's package installer — every 'brew' command below depends on it, and new Macs don't ship with it. This line is safe to run either way: it does nothing if Homebrew is already installed. A fresh install asks for your Mac password, and when it finishes it prints two 'Next steps' lines — run those too before moving on.",
+    },
     ...(config.useOwnTerminal ? [] : [ghosttyItem]),
     {
       key: "obsidian" as const,
