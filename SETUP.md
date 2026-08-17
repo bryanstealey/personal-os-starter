@@ -602,10 +602,19 @@ Read the current file (you may have written it in Section 10), then set the `hoo
           { "type": "command", "command": "/Users/<you>/.claude/hooks/load-core-artifacts.sh", "timeout": 5 }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "/Users/<you>/.claude/hooks/terminal-context-guard.sh", "timeout": 10 }
+        ]
+      }
     ]
   }
 }
 ```
+
+(`terminal-context-guard` is global on purpose, unlike the vault-scoped Stop hooks below: the user is in a terminal in EVERY project, so a response pointing them at a "side panel" or "artifact pane" — GUI chrome that leaks in from tool descriptions written for the desktop/web clients — is wrong everywhere. It allows the phrases inside backticks or double quotes, so discussing them is fine. Copy it alongside the other hooks: `cp setup-files/hooks/terminal-context-guard.sh ~/.claude/hooks/ && chmod +x ~/.claude/hooks/terminal-context-guard.sh`.)
 
 ### Register the Stop hooks in the VAULT's `.claude/settings.json`
 
@@ -774,9 +783,14 @@ chmod +x ~/.local/bin/calendar-agenda
 Configure the accounts via the `CALENDAR_ACCOUNTS` environment variable (the script reads this; **don't** edit the script body — those edits are dead code when the env var is set). Build the value from `googleAccounts`, using the **actual wrapper command names** (primary is `gws`; additional accounts are `gws-{{alias}}`):
 
 ```bash
-# Append to the shell rc (zsh on macOS). Example for two accounts:
-echo 'export CALENDAR_ACCOUNTS='\''[["gws","you@gmail.com"],["gws-work","you@company.com"]]'\''' >> ~/.zshrc
-source ~/.zshrc
+# Append to the shell rc — detect it, don't assume (zsh on macOS, bash on WSL/PC).
+# Same RC-detect pattern as Section 0. Example for two accounts:
+RC="${SHELL##*/}"; [ "$RC" = "zsh" ] && RC="$HOME/.zshrc" || RC="$HOME/.bashrc"
+echo 'export CALENDAR_ACCOUNTS='\''[["gws","you@gmail.com"],["gws-work","you@company.com"]]'\''' >> "$RC"
+# On PC/WSL also mirror it to ~/.profile so login shells and scheduled jobs see it
+# (Ubuntu's .bashrc early-returns in non-interactive shells):
+[ "$RC" = "$HOME/.bashrc" ] && echo 'export CALENDAR_ACCOUNTS='\''[["gws","you@gmail.com"],["gws-work","you@company.com"]]'\''' >> ~/.profile
+source "$RC"
 ```
 
 Test it:
@@ -785,7 +799,7 @@ Test it:
 calendar-agenda --today
 ```
 
-If it prints "calendar integration not configured," `CALENDAR_ACCOUNTS` isn't set in the current shell — `source ~/.zshrc` and retry. An empty day prints "(no events)"; that's a real empty calendar, not a failure.
+If it prints "calendar integration not configured," `CALENDAR_ACCOUNTS` isn't set in the current shell — `source` your rc file (`~/.zshrc` on Mac, `~/.bashrc` on PC/WSL) and retry. An empty day prints "(no events)"; that's a real empty calendar, not a failure.
 
 Update setup-state: step 13 complete.
 
@@ -802,8 +816,11 @@ Read `taskSystem` from the config.
 3. Save the token (hidden input, written to the rc file):
 
 ```bash
+RC="${SHELL##*/}"; [ "$RC" = "zsh" ] && RC="$HOME/.zshrc" || RC="$HOME/.bashrc"
 echo -n "Paste your Todoist API token: " && IFS= read -rs tok && echo "" && \
-echo "export TODOIST_API_TOKEN=\"$tok\"" >> ~/.zshrc && source ~/.zshrc && echo "Saved."
+echo "export TODOIST_API_TOKEN=\"$tok\"" >> "$RC" && source "$RC" && echo "Saved."
+# PC/WSL: mirror to ~/.profile so non-interactive/scheduled shells see it too
+[ "$RC" = "$HOME/.bashrc" ] && echo "export TODOIST_API_TOKEN=\"$tok\"" >> ~/.profile
 ```
 
 4. Verify: `echo ${#TODOIST_API_TOKEN}` (should be 40 characters)
@@ -1054,9 +1071,10 @@ chmod +x ~/.local/bin/ob
 # Substitute the vault path into the copied script. ob ships with a literal
 # `{{vaultPath}}` placeholder; replace it with the user's real vault directory
 # the same way Section 24's sed substitutes {{systemName}} into system-health.
-# macOS needs `sed -i ''`. REPLACE only the right-hand side below; the
-# left-hand side must stay the literal token the script contains.
-sed -i '' "s#{{vaultPath}}#$HOME/{{systemName}}#g" ~/.local/bin/ob
+# The -i.bak form works on BOTH macOS (BSD sed) and Linux/WSL (GNU sed);
+# plain `sed -i ''` is Mac-only and errors on Ubuntu. REPLACE only the
+# right-hand side below; the left-hand side must stay the literal token.
+sed -i.bak "s#{{vaultPath}}#$HOME/{{systemName}}#g" ~/.local/bin/ob && rm ~/.local/bin/ob.bak
 
 ob help
 ```
@@ -1277,16 +1295,17 @@ chmod +x ~/.local/bin/nightly-backup
 # Substitute the system name into the copied script. The script ships with a
 # literal `{{systemName}}` placeholder in its HEARTBEAT_DIR line; replace it
 # with the real system name so the heartbeat dir matches the `~/.<name>-health`
-# path the morning/shutdown rituals write to. macOS needs `sed -i ''`.
+# path the morning/shutdown rituals write to. The -i.bak form is portable
+# (BSD + GNU sed).
 # REPLACE only the right-hand side below with the system name; the left-hand
 # side must stay the literal token the script contains.
-sed -i '' "s/{{systemName}}/<system-name>/g" ~/.local/bin/nightly-backup
+sed -i.bak "s/{{systemName}}/<system-name>/g" ~/.local/bin/nightly-backup && rm ~/.local/bin/nightly-backup.bak
 ```
 
 > **Important:** in the `sed` above, the match pattern is the literal token
 > `{{systemName}}` (exactly what the script file contains) and the replacement
 > is the user's actual system name. For a system named `atlas` the command is:
-> `sed -i '' "s/{{systemName}}/atlas/g" ~/.local/bin/nightly-backup`. This is
+> `sed -i.bak "s/{{systemName}}/atlas/g" ~/.local/bin/nightly-backup && rm ~/.local/bin/nightly-backup.bak`. This is
 > the one place the script is intentionally edited at install — the env vars
 > below still configure paths; this only resolves the heartbeat-dir name so it
 > matches `~/.atlas-health`.
@@ -1303,7 +1322,10 @@ cat > ~/Library/LaunchAgents/com.{{systemName}}.nightly-backup.plist << EOF
   <key>ProgramArguments</key>
   <array><string>$HOME/.local/bin/nightly-backup</string></array>
   <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string></dict>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>VAULT_DIR</key><string>$HOME/{{vaultDir}}/</string>
+  </dict>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>23</integer><key>Minute</key><integer>30</integer></dict>
   <key>StandardErrorPath</key><string>$HOME/.{{systemName}}-health/nightly-backup.err</string>
@@ -1313,6 +1335,14 @@ EOF
 launchctl unload ~/Library/LaunchAgents/com.{{systemName}}.nightly-backup.plist 2>/dev/null
 launchctl load ~/Library/LaunchAgents/com.{{systemName}}.nightly-backup.plist
 ```
+
+> **Set `VAULT_DIR` before loading.** Replace `{{vaultDir}}` above with the
+> user's actual vault folder name (e.g. `atlas-vault`) — same substitution idea
+> as the `{{systemName}}` `sed` steps. The corrected `nightly-backup` script
+> *requires* `VAULT_DIR` and has no default: if the plist doesn't set it, the
+> scheduled job exits with a "VAULT_DIR not set" error on every run while the
+> script itself works fine when run by hand. This is the #1 silent-scheduled-
+> backup failure — do not skip it.
 
 The script pre-checks for a remote and writes an error to the heartbeat dir if none exists, so `system-health` surfaces a misconfigured backup the next morning. Tell your user to check the log the morning after the first run.
 
@@ -1334,7 +1364,7 @@ chmod +x ~/.local/bin/system-health
 # and nightly-backup write to. Without this, system-health reads a literal
 # `~/.{{systemName}}-health` path and reports morning/shutdown as NO HEARTBEAT
 # forever. REPLACE only the right-hand side; the left must stay the literal token.
-sed -i '' "s/{{systemName}}/<system-name>/g" ~/.local/bin/system-health
+sed -i.bak "s/{{systemName}}/<system-name>/g" ~/.local/bin/system-health && rm ~/.local/bin/system-health.bak
 
 # Create the heartbeat directory (named after your system)
 mkdir -p ~/.{{systemName}}-health
@@ -1343,7 +1373,7 @@ mkdir -p ~/.{{systemName}}-health
 > Same rule as the nightly-backup `sed`: the match pattern is the literal
 > `{{systemName}}` token the script contains, the replacement is the user's
 > actual system name. For `atlas`:
-> `sed -i '' "s/{{systemName}}/atlas/g" ~/.local/bin/system-health`. After this,
+> `sed -i.bak "s/{{systemName}}/atlas/g" ~/.local/bin/system-health && rm ~/.local/bin/system-health.bak`. After this,
 > the heartbeat dir the script reads (`~/.atlas-health`) exactly matches what
 > `morning.md` and `shutdown.md` write to (`date +%s > "$HOME/.atlas-health/…"`).
 

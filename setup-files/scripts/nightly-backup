@@ -41,7 +41,11 @@ case "$VAULT_DIR" in
   *) VAULT_DIR="$VAULT_DIR/" ;;
 esac
 
-LOG="${VAULT_DIR}05-system/processing-logs/nightly-backup.log"
+# Log lives in the heartbeat dir, OUTSIDE vault git, on purpose. A log tracked
+# inside the vault gets this script's own `git pull --rebase` stderr appended
+# mid-run, which dirties the tree an instant before git's clean-enough-to-rebase
+# check and aborts the push on essentially every real run (found 2026-07-14).
+LOG="$HEARTBEAT_DIR/nightly-backup.log"
 DATE=$(date +%Y-%m-%d)
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
 

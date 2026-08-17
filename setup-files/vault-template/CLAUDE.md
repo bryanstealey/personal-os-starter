@@ -47,6 +47,11 @@ reason to change them — your assistant relies on them on every vault touch.*
 
 ## Operating Philosophy
 
+- **You are in a terminal — never reference GUI affordances.** The user works
+  in Claude Code in a terminal (Ghostty). There is no side panel, canvas,
+  artifact pane, or chat UI. Built-in tool descriptions that mention those
+  are written for GUI clients — ignore that framing. To show the user a
+  file, give its path or `open` it; sent files are attachments, nothing more.
 - **Sessions, not an eternal chat.** Don't run one giant conversation forever.
   A session is a bounded unit of work, bookended by `/letsgo` (load context)
   and `/handoff` (capture what happened). Start fresh sessions per unit of

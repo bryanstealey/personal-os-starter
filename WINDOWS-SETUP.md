@@ -1,6 +1,8 @@
 # Windows Setup Spec (PC Install Path)
 
-> ⚠️ **BETA — unvalidated.** This PC/WSL2 path has not been tested against the v1 fixes. Prefer the Mac install (`SETUP.md`); use this at your own risk.
+> ⚠️ **BETA.** Audited and corrected Aug 17, 2026 against Julian's June beta findings, Liz's field
+> data, and current platform docs — but not yet validated end-to-end on a fresh machine since the
+> corrections. The next PC install is the validation run; capture everything.
 
 This is the decision record and install spec for running the Personal OS on a Windows PC.
 `SETUP.md` is written for macOS. Everything below is what changes when the client is on a PC.
@@ -66,13 +68,20 @@ at `C:\Users\<user>\.wslconfig`:
 
 ```
 [wsl2]
-memory=6GB
+memory=5GB
 processors=4
+
+[experimental]
 autoMemoryReclaim=gradual
 ```
 
-Tune `memory` to the machine: ~6 GB on a 16 GB laptop, lower on 8 GB. After writing it, run
-`wsl --shutdown` and reopen Ubuntu.
+**`autoMemoryReclaim` must live under `[experimental]`, not `[wsl2]`** — under the wrong
+section the key is silently ignored (verified against Microsoft's `.wslconfig` docs, Aug 2026).
+
+Tune `memory` to the machine: **5 GB on a 16 GB laptop is the field-proven value** (Liz's
+Weaver OOM crisis, May 12 2026 — 6 GB was still not enough headroom next to Teams + Edge +
+Adobe + OneDrive). Lower on 8 GB; a 32 GB machine can take 8 GB. `processors` should be at
+most half the machine's cores. After writing it, run `wsl --shutdown` and reopen Ubuntu.
 
 ### 2. Put the Obsidian vault inside WSL
 
@@ -101,24 +110,38 @@ sudo apt update
 sudo apt install -y jq build-essential python3 python-is-python3
 
 # 2. Node.js via nvm — installs into your home dir, so 'npm install -g'
-#    never hits the root-owned-folder permission (EACCES) error
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+#    never hits the root-owned-folder permission (EACCES) error.
+#    Check https://github.com/nvm-sh/nvm for the current release tag first —
+#    v0.40.1 and earlier carry 2026 CVEs (command injection via mirror metadata).
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash
 source ~/.bashrc
 nvm install --lts
+# Expose node/npm to non-interactive shells (hooks, scheduled jobs): Ubuntu's
+# .bashrc early-returns for non-interactive shells, so nvm alone is invisible there.
+mkdir -p ~/.local/bin
+for b in node npm npx; do ln -sf "$(command -v $b)" ~/.local/bin/$b; done
 
-# 3. Claude Code (now that Node exists)
-npm install -g @anthropic-ai/claude-code
+# 3. Claude Code — NATIVE installer, exactly like the Mac guide (Section 0).
+#    NEVER npm-install it: the kit later sets `npm config set ignore-scripts true`
+#    machine-wide, which breaks the npm package's post-install wiring (the known
+#    failure loop SETUP.md Section 0 documents). The Linux native installer
+#    works unchanged inside WSL2 Ubuntu:
+curl -fsSL https://claude.ai/install.sh | sh
 
 # 4. Put ~/.local/bin on PATH — the kit installs calendar-agenda,
-#    nightly-backup, and system-health there
+#    nightly-backup, and system-health there (and claude lands there too).
+#    Write it to BOTH rc files: .bashrc for interactive shells, .profile for
+#    login/non-interactive shells (scheduled jobs).
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.profile
 source ~/.bashrc
+command -v claude && claude --version   # must resolve before continuing
 ```
 
 Why each one:
-- **`jq`** — required by all six hooks (`npm-install-guard`, `read-before-claiming`, etc.); not preinstalled on Ubuntu. Without it the hooks error on every fire and Claude Code gets erratic.
+- **`jq`** — required by all seven hooks (`npm-install-guard`, `read-before-claiming`, `terminal-context-guard`, etc.); not preinstalled on Ubuntu. Without it the hooks error on every fire and Claude Code gets erratic.
 - **`build-essential` / `python3`** — needed by setup scripts and native npm modules.
-- **nvm for Node** — Ubuntu has no Node by default, and a system `npm install -g` fails with EACCES on a root-owned prefix. nvm avoids both. (This is exactly the wall Julian hit on his beta run.)
+- **nvm for Node** — Ubuntu has no Node by default, and a system `npm install -g` fails with EACCES on a root-owned prefix. nvm avoids both. (This is exactly the wall Julian hit on his beta run, June 1 2026.) The `~/.local/bin` symlinks matter because nvm's PATH lives in `.bashrc`, which non-interactive shells never read.
 - **`~/.local/bin` on PATH** — WSL has no macOS `path_helper`, so without this line the calendar wrapper, nightly backup, and health check are "command not found."
 
 ---
@@ -136,14 +159,52 @@ The PC path replaces or rewrites these `SETUP.md` sections:
 | Pane shortcuts (Ghostty) | Windows Terminal pane shortcuts (Alt+Shift+± to split) |
 | Vault at `~/<systemName>/`, Obsidian opens it directly | Vault in WSL home; Windows Obsidian opens `\\wsl.localhost\Ubuntu\home\<user>\<systemName>` |
 | `.zshrc` aliases | `.bashrc` aliases (Ubuntu default shell) |
-| **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. Copy it across: `mkdir -p ~/.config/gws && cp /mnt/c/Users/<WindowsUser>/Downloads/client_secret_*.json ~/.config/gws/client_secret.json`. Same `~/.config/gws/` troubleshooting and "add yourself as a test user" rules from SETUP.md apply. |
+| **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. **OneDrive gotcha:** on most personal laptops, Known Folder Move relocates Downloads to `C:\Users\<u>\OneDrive\Downloads` — never assume the bare path (this bit Liz's Desktop in April 2026). Probe both, quoted against spaces in usernames: `WU="<WindowsUser>"; mkdir -p ~/.config/gws && cp "/mnt/c/Users/$WU/OneDrive/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json 2>/dev/null \|\| cp "/mnt/c/Users/$WU/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json`. Then verify: `ls ~/.config/gws/client_secret.json`. Same troubleshooting and "add yourself as a test user" rules from SETUP.md apply — and **publish the OAuth app out of Testing mode** or tokens die every 7 days (Becky's silent weekly failure). |
 | Wispr Flow dictation | Win+H dictation |
 | iMessage self-text capture skill | Not available on Windows — skip or substitute |
 
 Everything else (skills, hooks, vault template, rituals, Google Workspace CLI, task system, claude-hud)
-ports directly because it lives inside the Linux shell. The **one** exception is the Google OAuth
-`client_secret.json`: the browser downloads it on the Windows side, so it must be copied into WSL
-(see the Section 12 row above) — otherwise `gws auth login` won't find it.
+ports directly because it lives inside the Linux shell — with **two** exceptions:
+
+1. The Google OAuth `client_secret.json` downloads on the Windows side and must be copied into WSL
+   (see the Section 12 row above) — otherwise `gws auth login` won't find it.
+2. **Section 23's scheduling does NOT port.** launchd doesn't exist on Linux, and cron/systemd
+   *inside* WSL never fire either — WSL isn't running overnight (it exits ~60s after the last
+   shell closes). Use the Task Scheduler pattern below; without it the nightly backup silently
+   never runs and system-health shows "not yet run" forever.
+
+---
+
+## Scheduling on PC: Windows Task Scheduler → wsl.exe (replaces Section 23's launchd)
+
+Windows Task Scheduler is the only scheduler that's actually awake at 11:30 PM. It starts WSL
+itself, so nothing depends on the VM already running. Create the task from an **admin PowerShell**
+(substitute the Linux username and vault dir — never hardcode, ask the machine):
+
+```powershell
+schtasks /Create /TN "PersonalOS-NightlyBackup" /SC DAILY /ST 23:30 /F /TR "wsl.exe -d Ubuntu -u <linuxUser> -- /bin/bash -lc 'VAULT_DIR=\$HOME/<vaultDir>/ \$HOME/.local/bin/nightly-backup'"
+```
+
+Why each piece:
+- **`-d Ubuntu`** — confirm the real distro name first with `wsl -l -v`; fresh installs are often
+  `Ubuntu-24.04`, not `Ubuntu`.
+- **`bash -lc`** — a login shell reads `~/.profile`, which is why the prerequisites above write
+  PATH (and the env-var mirrors) there. Plain `bash -c` gets a bare PATH and dies "command not found."
+- **`VAULT_DIR=` inline** — the script requires it and has no default. A missing `VAULT_DIR` is the
+  #1 silent-scheduled-backup failure from the Mac kit (Darin's install); same rule here.
+- **Git auth note:** run one manual `git push` from inside WSL first so the credential is stored
+  Linux-side (`gh auth login` or a stored HTTPS credential). The macOS keychain failure mode doesn't
+  exist here, but an unauthenticated repo fails the same way — and the script's honest heartbeat
+  will correctly refuse to go green.
+
+**Power settings are part of the install (Liz doctrine, July 2026):** plugged in → sleep Never,
+lid close → Do nothing, and pause Windows Update during the install day. Do NOT use PowerToys
+Awake or keep-awake apps — they release the wake-lock at the lock screen. A machine that sleeps
+at 11 PM has no nightly anything.
+
+**Verify next morning** (not on install day): `system-health` inside WSL must show a fresh
+`nightly-backup` heartbeat. "The task ran" per Task Scheduler is not the check — the honest
+heartbeat is.
 
 ---
 
@@ -171,8 +232,21 @@ wizard steps or stay runbook-driven.
 
 ---
 
-## Beta Test
+## Beta History
 
-**Julian is the first PC beta tester** — he'll stand this up on his own Windows machine. He's the proof
-that the spec is repeatable by someone other than Bryan, and the first real test of whether the two
-hardening fixes hold under a fresh install. Capture what breaks and fold it back into this doc.
+**Julian ran the first PC beta (June 1–2, 2026, system `neurula`)** and hit seven blockers, all
+fixed same-day in commit `7affde2`: Node missing from the PC preflight, npm EACCES (→ the nvm
+step above), a literal `[repo-url]` placeholder in the wizard's clone step, the repo being
+private, a zsh shebang in `system-health`, root-owned `/usr/local/bin` installs (→ `~/.local/bin`),
+and `user-config.json` landing on the Windows side of the divide. His install has run daily since,
+but was never formally confirmed complete against the checklist.
+
+**Liz's Weaver (April 24, 2026, Windows 11 / 16 GB)** remains the only completed real-world PC
+install. Her May 12 OOM crisis produced the 5 GB `.wslconfig` value above; her OneDrive Desktop
+redirect produced the Downloads-probe rule in Section 12.
+
+**This doc was audited and corrected August 17, 2026** (three-way review: Claude + Codex + Grok
+against current Microsoft/Anthropic docs). Still open after that pass: graduating the WSL2 steps
+into wizard steps, a native-Windows fallback runbook, a real "Configure Windows Terminal"
+procedure, and an iMessage-capture substitute. Capture what breaks on the next install and fold
+it back in.
