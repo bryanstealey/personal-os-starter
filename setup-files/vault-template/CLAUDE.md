@@ -201,3 +201,24 @@ normal rates).
 `05-system/name-registry.jsonl` is the canonical index of known people. Consult it
 before treating a mentioned person as new. See `05-system/routing-table.md` for the
 full input-lifecycle map.
+
+## Calculations — Verify the Setup, Then the Arithmetic
+
+For any number you present to the user (a quantity, cost, rate, yield, conversion,
+percentage), never do the math in your head:
+
+1. List each input as a named variable with its value, unit, and source. Label
+   assumptions clearly. If an input is missing, ask for it. Never invent one.
+2. Write the formula before computing, and show how any scale factor applies (a
+   "per 1,000 sqft" rate must be scaled to the actual square footage first).
+3. Check that the units cancel correctly and leave the unit that was asked for.
+4. Always compute with Python. Use `python3`; fall back to `python` or `py` if
+   that command is missing (Windows outside WSL).
+5. Sanity-check the result with a quick reverse calculation or estimate.
+6. Show the inputs, the formula, the result, and the sanity check.
+7. If the user challenges a number, rebuild it from the original sources rather
+   than rerunning the same formula.
+
+Most calculation errors are setup errors (wrong scale, wrong units, a missing
+conversion), not arithmetic errors. Writing the inputs out first is what makes
+those visible.
