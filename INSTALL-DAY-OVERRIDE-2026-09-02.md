@@ -18,6 +18,9 @@ letsgo/handoff loop is a habit.)
 | **15 — Rituals** | **Not installed this week.** Do not copy morning.md, shutdown.md, or weekly.md. The vault CLAUDE.md template already describes the two-command loop. |
 | **23 — nightly backup / GitHub** | Run ONLY the `git init` + first commit. No GitHub, no nightly-backup script, no scheduler. Obsidian Git is the version history. |
 | **24 — System health** | Nothing to watch yet. Skip. `/letsgo` knows to stay silent when it's absent. |
+| **20 — Business/personal separation** | Skip regardless of config. One agent. |
+| **3 — `new-project` skill** | Do not install it this week (week-two item). Install letsgo, handoff, obsidian-markdown, link-backfill only. |
+| **26 — the shipped summary + FAQ** | Replace the ENTIRE shipped summary and FAQ with the wording under "Words to use" below. The shipped text lists rituals, Google tools, and hooks that were not installed. |
 | **17.1 / 17.2 — email- and calendar-driven population** | Same dependency. Population happens by interview instead (see below). |
 | **21 — First project** | Week-one rule is ONE agent. Project agents start in week two, on the client's request. |
 | **22 — Multi-pane + first ritual** | Whole section. One pane, one agent, no rituals this week. The day ends on `/handoff` (see Success definition). |

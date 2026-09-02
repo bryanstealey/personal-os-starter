@@ -3,7 +3,7 @@
 # Run in Terminal:
 #   curl -fsSL https://personal-os-starter.vercel.app/mac.sh | bash
 # Everything up to "claude is authenticated" happens here. Idempotent — safe to re-run.
-set -u
+set -uo pipefail
 KIT_REPO="https://github.com/bryanstealey/personal-os-starter.git"
 KIT_DIR="$HOME/personal-os-installer"
 say()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
@@ -39,14 +39,17 @@ echo "ok: claude $(claude --version 2>/dev/null | head -1)"
 say "4/5  The kit + your config"
 if [ -d "$KIT_DIR/.git" ]; then
   git -C "$KIT_DIR" pull -q --ff-only || warn "kit pull failed; using the existing copy"
+elif [ -e "$KIT_DIR" ]; then
+  die "$KIT_DIR exists but is not a git checkout (interrupted earlier?). Run:  mv $KIT_DIR $KIT_DIR.old   then re-run this script."
 else
   git clone -q "$KIT_REPO" "$KIT_DIR" || die "Could not clone the kit."
 fi
 if [ -f "$HOME/Downloads/user-config.json" ]; then
   cp "$HOME/Downloads/user-config.json" "$KIT_DIR/config/user-config.json" && echo "config copied from ~/Downloads"
 else
-  warn "user-config.json not found in ~/Downloads. Download it from the wizard, then run:"
-  warn "  cp ~/Downloads/user-config.json $KIT_DIR/config/"
+  printf '\n\033[1;31mCONFIG MISSING — do this before anything else:\033[0m\n'
+  echo "  Get user-config.json onto this Mac (AirDrop from the wizard machine), then:"
+  echo "  cp ~/Downloads/user-config.json $KIT_DIR/config/"
 fi
 
 say "5/5  Done. Two things left:"

@@ -301,6 +301,14 @@ mkdir -p "$VAULT_PATH"
 
 # Copy the template structure (including the .obsidian/ config and dotfiles)
 cp -R setup-files/vault-template/. "$VAULT_PATH/"
+
+# Make it a git repo NOW (empty history, no remote) so Obsidian Git has a repo to
+# talk to when Section 7 opens the vault — otherwise it shows "not a git repository"
+# errors until Section 23. Identity comes from the config so the first commit works.
+git -C "$VAULT_PATH" init -q
+git -C "$VAULT_PATH" config user.name "{{userName}}"
+git -C "$VAULT_PATH" config user.email "{{first email in googleAccounts}}"
+git -C "$VAULT_PATH" config core.autocrlf false
 ```
 
 > The vault gets a **fresh** git history later (Section 23 / nightly backup), with **no remote** unless the user opts into GitHub. Do **not** copy or inherit the installer's `.git`. The `cp -R ... /.` form copies the template's own files (and its shipped `.obsidian/`), not the installer repo's git metadata.
@@ -1310,10 +1318,10 @@ Now that the vault has CLAUDE.md and rituals, initialize its git history. **GitH
 ### Initialize the vault's git (fresh, no remote)
 
 ```bash
-cd ~/{{systemName}} && git init && git add -A && git commit -m "Initial vault: structure, CLAUDE.md, rituals"
+cd ~/{{systemName}} && git add -A && git commit -q -m "Initial vault: structure, CLAUDE.md, skills"
 ```
 
-This is a **fresh** history with **no remote** — it does not inherit anything from the installer.
+(`git init` and the user identity were already done in Section 6.) This is a **fresh** history with **no remote** — it does not inherit anything from the installer.
 
 ### Default backup: local
 

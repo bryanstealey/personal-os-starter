@@ -3,7 +3,7 @@
 # Run INSIDE Ubuntu, after the UNIX user exists, as that user:
 #   curl -fsSL https://personal-os-starter.vercel.app/pc.sh | bash
 # Everything up to "claude is authenticated" happens here. Idempotent — safe to re-run.
-set -u
+set -uo pipefail
 KIT_REPO="https://github.com/bryanstealey/personal-os-starter.git"
 KIT_DIR="$HOME/personal-os-installer"
 NVM_VER="v0.40.7"
@@ -47,9 +47,9 @@ command -v claude >/dev/null || die "claude is not on PATH after install."
 echo "ok: claude $(claude --version 2>/dev/null | head -1)"
 
 say "5/7  WSL memory cap  (.wslconfig on the Windows side)"
-WINHOME="$(wslpath -u "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')" 2>/dev/null || true)"
+WINHOME="$(cd /mnt/c 2>/dev/null && wslpath -u "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')" 2>/dev/null || true)"
 if [ -n "$WINHOME" ] && [ -d "$WINHOME" ]; then
-  BYTES="$(powershell.exe -NoProfile -Command '(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory' 2>/dev/null | tr -d '\r ' || true)"
+  BYTES="$(cd /mnt/c && powershell.exe -NoProfile -Command '(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory' 2>/dev/null | tr -d '\r ' || true)"
   case "$BYTES" in ''|*[!0-9]*) BYTES=0;; esac
   GB=$(( BYTES / 1073741824 ))
   MEM=5; [ "$GB" -ge 30 ] && MEM=8; [ "$GB" -gt 0 ] && [ "$GB" -le 8 ] && MEM=3
@@ -68,6 +68,8 @@ fi
 say "6/7  The kit + your config"
 if [ -d "$KIT_DIR/.git" ]; then
   git -C "$KIT_DIR" pull -q --ff-only || warn "kit pull failed; using the existing copy"
+elif [ -e "$KIT_DIR" ]; then
+  die "$KIT_DIR exists but is not a git checkout (interrupted earlier?). Run:  mv $KIT_DIR $KIT_DIR.old   then re-run this script."
 else
   git clone -q "$KIT_REPO" "$KIT_DIR" || die "Could not clone the kit."
 fi
@@ -75,25 +77,37 @@ CFG=""
 for d in "$WINHOME/OneDrive/Downloads" "$WINHOME/Downloads" "$WINHOME"/OneDrive*/Downloads "$HOME/Downloads"; do
   [ -f "$d/user-config.json" ] && { CFG="$d/user-config.json"; break; }
 done
+CONFIG_OK=0
 if [ -n "$CFG" ]; then
-  cp "$CFG" "$KIT_DIR/config/user-config.json" && echo "config copied from: $CFG"
+  cp "$CFG" "$KIT_DIR/config/user-config.json" && echo "config copied from: $CFG" && CONFIG_OK=1
 else
-  warn "user-config.json not found in Windows Downloads. Download it from the wizard, then run:"
-  warn "  cp \"$WINHOME/Downloads/user-config.json\" $KIT_DIR/config/"
+  warn "user-config.json not found in Windows Downloads."
 fi
 
-say "7/7  Git for Windows  (Obsidian's git plugin needs it) — watch Windows for a UAC prompt"
-if command -v winget.exe >/dev/null 2>&1; then
-  if winget.exe install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements >/dev/null 2>&1; then
+say "7/7  Windows apps: Git for Windows + Obsidian  — watch Windows for UAC prompts"
+if (cd /mnt/c && command -v winget.exe >/dev/null 2>&1); then
+  if (cd /mnt/c && winget.exe install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements >/dev/null 2>&1); then
     echo "ok: Git for Windows installed (or already present)"
+    GITEXE="/mnt/c/Program Files/Git/cmd/git.exe"
+    [ -x "$GITEXE" ] && (cd /mnt/c && "$GITEXE" config --global core.autocrlf false >/dev/null 2>&1) && echo "ok: Windows git core.autocrlf=false"
   else
-    warn "winget could not install Git for Windows. Either run in PowerShell:  winget install --id Git.Git -e"
-    warn "or drop obsidian-git from the vault's .obsidian/community-plugins.json for week one."
+    warn "winget could not install Git for Windows. In PowerShell:  winget install --id Git.Git -e"
+    warn "then:  git config --global core.autocrlf false   — or drop obsidian-git from the vault's .obsidian/community-plugins.json for week one."
+  fi
+  if (cd /mnt/c && winget.exe install --id Obsidian.Obsidian -e --source winget --accept-package-agreements --accept-source-agreements >/dev/null 2>&1); then
+    echo "ok: Obsidian installed (or already present)"
+  else
+    warn "winget could not install Obsidian — download it from obsidian.md on the Windows side."
   fi
 else
-  warn "winget.exe not reachable from WSL. In PowerShell:  winget install --id Git.Git -e"
+  warn "winget.exe not reachable from WSL. In PowerShell:  winget install --id Git.Git -e ; winget install --id Obsidian.Obsidian -e"
 fi
 
+if [ "$CONFIG_OK" = 0 ]; then
+  printf '\n\033[1;31mCONFIG MISSING — do this before anything else:\033[0m\n'
+  echo "  Download user-config.json from the wizard (personal-os-starter.vercel.app), then in Ubuntu:"
+  echo "  cp \"$WINHOME/Downloads/user-config.json\" $KIT_DIR/config/     (or OneDrive/Downloads)"
+fi
 say "Done. Three things left, in order:"
 cat <<'EOF'
   1. Reboot Windows once (Start -> Power -> Restart). This applies the memory cap and clears
