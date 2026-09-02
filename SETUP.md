@@ -423,20 +423,36 @@ Update setup-state: step 8 complete.
 
 ## Section 9: Install Status Line (claude-hud)
 
-"The status line shows useful information at the bottom of your terminal while Claude Code is running — token usage, model, session info."
+"The status line sits under your prompt and shows three things you'll look at all day: **which project you're in**, **how full your context window is**, and **how much of your Claude usage limit you've used** (the 5-hour and 7-day windows). Without it you fly blind."
 
-claude-hud ships with the kit as a file-copy skill:
+claude-hud is a **plugin**, not a skill. It installs through Claude Code's plugin marketplace with three slash commands. **Slash commands only run in the Claude Code prompt, not in a bash block** — have your user type these, one at a time, and wait for each to finish:
 
-```bash
-mkdir -p ~/.claude/skills/claude-hud
-cp -R setup-files/skills/silent/claude-hud/. ~/.claude/skills/claude-hud/
+```
+/plugin marketplace add jarrodwatts/claude-hud
+/plugin install claude-hud@claude-hud
+/reload-plugins
 ```
 
-Then configure it. **`/claude-hud:setup` is a slash command — it only runs inside an interactive Claude Code prompt, not in a bash block.** Tell your user, as a manual step:
+Then:
 
-> "In your Claude Code prompt (not a shell), run `/claude-hud:setup`. If the command isn't recognized yet, run `/reload-plugins` first, or restart Claude Code. Use sensible defaults when it asks."
+```
+/claude-hud:setup
+```
 
-If claude-hud isn't present in `setup-files/skills/silent/`, skip it — the status line is a nice-to-have, not load-bearing.
+`setup` detects the runtime and writes the `statusLine` entry into `~/.claude/settings.json`. Accept its defaults. (It needs `node` on PATH — Section 0 / the PC prerequisites already installed it. If it reports "command not found" for `/claude-hud:setup`, the plugin hasn't reloaded yet — run `/reload-plugins` again or restart Claude Code.)
+
+Now install the kit's preset so the three things above are on from the start:
+
+```bash
+mkdir -p ~/.claude/plugins/claude-hud
+cp setup-files/config/claude-hud.json ~/.claude/plugins/claude-hud/config.json
+```
+
+The status line refreshes on the next message. Confirm with your user that they can see the project name, a context bar, and a usage bar. `/claude-hud:configure` adjusts it later.
+
+> The kit's `setup-files/skills/silent/claude-hud/SKILL.md` is reference documentation for this plugin (license, options); it is not something to copy into `~/.claude/skills/`.
+
+If the marketplace add fails (no GitHub access from the machine), skip — the status line is a nice-to-have, not load-bearing. Log it in setup-state so it gets added at the first support session.
 
 Update setup-state: step 9 complete.
 

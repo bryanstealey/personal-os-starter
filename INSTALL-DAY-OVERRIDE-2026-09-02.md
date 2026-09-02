@@ -14,7 +14,6 @@ letsgo/handoff loop is a habit.)
 |---|---|
 | **12 — Google Workspace CLI** | No Google identity exists. Never open console.cloud.google.com. Never attempt the Anthropic M365 connector, a Graph app registration, or IMAP — all require tenant-admin consent, and a failed attempt can trip conditional-access alerts on the client's corporate account. |
 | **13 — Calendar wrapper** | Depends on gws. |
-| **9 — Status line (claude-hud)** | Its install text describes a plugin marketplace, not the file copy the section performs; it cannot work as written. Cosmetic anyway. |
 | **11 — two of the hooks** | Install obsidian-lint, npm-install-guard, terminal-context-guard (global) and read-before-claiming (vault). **Skip calendar-day-verify** (Google-only, inert) and **skip lookup-before-asking** (it blocks any response containing "can you paste" and coaches the agent toward Google Sheets — the exact sentence the paste loop needs). Two Stop hooks in the JSON become one. |
 | **15 — Rituals** | **Not installed this week.** Do not copy morning.md, shutdown.md, or weekly.md. The vault CLAUDE.md template already describes the two-command loop. |
 | **23 — nightly backup / GitHub** | Run ONLY the `git init` + first commit. No GitHub, no nightly-backup script, no scheduler. Obsidian Git is the version history. |
@@ -25,6 +24,12 @@ letsgo/handoff loop is a habit.)
 
 If the client's wizard config carries an M365 address in `googleAccounts`, treat it as a
 label only — it is NOT a Google account. Do not drive it into any Google flow.
+
+## Section 9 (status line) — DO run it
+
+Section 9 was rewritten Sept 1 to install claude-hud correctly (plugin marketplace, three slash
+commands typed by the client, then the kit preset). Run it as written. It gives the client the
+project name, the context bar, and their usage limits — Bryan wants this on from hour one.
 
 ## Words to use (client-facing)
 
