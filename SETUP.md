@@ -275,6 +275,25 @@ Read `systemName` and `buckets` from the config.
 
 "Now we're creating your vault — the knowledge base that holds your life context. It lives at `~/{{systemName}}`, completely separate from this installer."
 
+> **PC (WSL) only — do this BEFORE the `mkdir` below, or the vault ends up inside WSL.**
+> Per `WINDOWS-SETUP.md` hardening fix #2 the vault lives on the **Windows** filesystem and
+> `~/{{systemName}}` is a symlink to it. Create the Windows folder and the symlink first, verify,
+> then continue (the `mkdir -p` below is harmless on an existing symlink):
+>
+> ```bash
+> # Ask Windows for the real profile folder — never guess the Windows username.
+> WINHOME="$(wslpath -u "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')")"
+> echo "$WINHOME"                                   # e.g. /mnt/c/Users/scottk
+> mkdir -p "$WINHOME/{{systemName}}"
+> ln -s "$WINHOME/{{systemName}}" "$HOME/{{systemName}}"
+> readlink -f "$HOME/{{systemName}}"                # MUST start with /mnt/c/ — stop if it doesn't
+> ```
+>
+> The vault sits directly under the profile (`C:\Users\<u>\{{systemName}}`), **not** under
+> `Documents`: on corporate Microsoft 365 machines OneDrive redirects Documents into cloud sync,
+> which fights git and Obsidian and leaves placeholder files WSL cannot read. Windows Obsidian
+> opens `C:\Users\<u>\{{systemName}}` as a plain local folder.
+
 ```bash
 # Create the vault directory (separate from the installer dir)
 VAULT_PATH="$HOME/{{systemName}}"
@@ -464,7 +483,7 @@ If a settings.json already exists, **merge** the env/permissions/hooks blocks in
 }
 ```
 
-Write `VAULT_PATH` as an **absolute** path (expand `$HOME` — tilde does not expand inside JSON strings). Fill the `allow` array with the allow-set for the selected `permissionMode` (the three concrete sets are below). The `hooks` block is filled in Section 11.
+Write `VAULT_PATH` as an **absolute** path (expand `$HOME` — tilde does not expand inside JSON strings). **On PC use the real path, `readlink -f "$HOME/{{systemName}}"` (it starts with `/mnt/c/`)** — the hooks' `find` and prefix checks do not see through the symlink, so the symlink path would make them silently blind. Fill the `allow` array with the allow-set for the selected `permissionMode` (the three concrete sets are below). The `hooks` block is filled in Section 11.
 
 **`auto` allow-set (balanced — safe reads + common commands, prompt for the rest):**
 ```json
@@ -1080,7 +1099,10 @@ chmod +x ~/.local/bin/ob
 # The -i.bak form works on BOTH macOS (BSD sed) and Linux/WSL (GNU sed);
 # plain `sed -i ''` is Mac-only and errors on Ubuntu. REPLACE only the
 # right-hand side below; the left-hand side must stay the literal token.
-sed -i.bak "s#{{vaultPath}}#$HOME/{{systemName}}#g" ~/.local/bin/ob && rm ~/.local/bin/ob.bak
+# readlink -f resolves the PC symlink to its /mnt/c/ target: `find` on a bare
+# symlink does not descend, so the symlink path would make every ob command
+# report an empty vault. On Mac it simply returns the same path.
+sed -i.bak "s#{{vaultPath}}#$(readlink -f "$HOME/{{systemName}}")#g" ~/.local/bin/ob && rm ~/.local/bin/ob.bak
 
 ob help
 ```

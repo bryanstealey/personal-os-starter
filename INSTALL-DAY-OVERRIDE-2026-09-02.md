@@ -74,8 +74,23 @@ minutes; the client will tire.
 
 ## PC-specific (Julian)
 
-- Hardening pair is mandatory: `.wslconfig` memory cap; vault on the **Windows** filesystem
-  at `C:\Users\<user>\Documents\<systemName>`, symlinked to `~/<systemName>` in WSL.
+- Hardening pair is mandatory: `.wslconfig` memory cap (5GB on 16GB RAM — check the machine);
+  vault on the **Windows** filesystem at `C:\Users\<user>\<systemName>` (profile root — NOT
+  Documents, which is OneDrive on this tenant), symlinked to `~/<systemName>` in WSL.
+- **Symlink BEFORE SETUP.md Section 6.** Get the Windows home from
+  `cmd.exe /c 'echo %USERPROFILE%'`, never by guessing the username. Verify with
+  `readlink -f ~/<systemName>` → must start with `/mnt/c/`.
+- **Real path, not symlink, wherever a path is written into a file:** `VAULT_PATH` in
+  `~/.claude/settings.json` and the `{{vaultPath}}` token in `ob` both take
+  `$(readlink -f ~/<systemName>)`. Then prove it: `ob orphans` must list real files, not "(none)".
+- **Git for Windows** goes on during the WSL reboot dead time (`winget install --id Git.Git -e`),
+  or Section 7's Obsidian Git shows "Git is not installed." If winget is blocked, remove
+  `obsidian-git` from the vault's `.obsidian/community-plugins.json` before Obsidian opens.
+- Wizard Export step's `mv ~/Downloads/user-config.json ...` does not apply on PC — the file is
+  on the Windows side. The **agent** copies it after auth:
+  `cp /mnt/c/Users/<u>/OneDrive/Downloads/user-config.json config/ 2>/dev/null || cp /mnt/c/Users/<u>/Downloads/user-config.json config/`
+- Do not ask for pasted screenshots on the PC (clipboard image paste is broken in WSL). Ask for
+  "done" instead.
 - If WSL is blocked (no admin rights, Intune/GPO policy, virtualization off, distro fetch
   fails after `--web-download` and the Store): switch to the **native fallback** — `winget
   install Anthropic.ClaudeCode`, Git for Windows, Obsidian, vault at

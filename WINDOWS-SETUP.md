@@ -94,13 +94,32 @@ validated on a real install — and Julian's June notes record Obsidian failing 
 
 The layout:
 
-1. Vault directory on Windows: `C:\Users\<user>\Documents\<systemName>` — Windows Obsidian opens
-   it directly, as a plain local folder.
-2. Symlink it into the WSL home so every kit path works unchanged:
+1. Vault directory on Windows: `C:\Users\<user>\<systemName>` — directly under the profile,
+   **not** under `Documents`. Windows Obsidian opens it as a plain local folder.
+   **Why not Documents (Sept 2, 2026):** on corporate Microsoft 365 machines OneDrive's Known
+   Folder Move redirects Documents (and Desktop) into cloud sync. A vault there means OneDrive
+   syncing `.git` and `.obsidian`, lock churn against Obsidian, and Files-On-Demand placeholders
+   that WSL reads as I/O errors. The profile root is never redirected.
+2. Symlink it into the WSL home so every kit path works unchanged. **Order matters: do this
+   BEFORE `SETUP.md` Section 6 runs `mkdir -p ~/<systemName>`**, otherwise the vault becomes a
+   real WSL directory and the link nests inside it. Never guess the Windows username — ask:
    ```bash
-   ln -s "/mnt/c/Users/<WindowsUser>/Documents/<systemName>" ~/<systemName>
+   WINHOME="$(wslpath -u "$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')")"
+   mkdir -p "$WINHOME/<systemName>"
+   ln -s "$WINHOME/<systemName>" ~/<systemName>
+   readlink -f ~/<systemName>     # must start with /mnt/c/
    ```
-3. Claude Code and all scripts use `~/<systemName>/` exactly as the Mac guide does.
+3. Claude Code and all scripts use `~/<systemName>/` exactly as the Mac guide does — **except
+   where a path is baked into a file** (`VAULT_PATH` in `~/.claude/settings.json`, the
+   `{{vaultPath}}` token in `ob`): there, use the resolved path from `readlink -f`. `find` on a
+   bare symlink does not descend, so the symlink path would make `ob` and `obsidian-lint`
+   silently see an empty vault.
+4. **Git for Windows** — Obsidian on Windows runs the Obsidian Git plugin with *Windows* git;
+   WSL's git is invisible to it. Install during the WSL reboot dead time, from PowerShell:
+   `winget install --id Git.Git -e --source winget`, then `git config --global core.autocrlf false`
+   in PowerShell (two gits on one repo otherwise churn line endings). If winget or the installer
+   is blocked by policy, remove `"obsidian-git"` from the vault's `.obsidian/community-plugins.json`
+   before Obsidian first opens and treat version history as a week-two item.
 
 Known cost: `/mnt/c/...` crosses the VM boundary on the 9P protocol, which is slower than native
 Linux disk. In months of daily field use this has not mattered. If a future install hits real
@@ -208,12 +227,13 @@ Sept 1, 2026).** The manual phase ends the moment Claude Code runs and is authen
 Everything after that is agent-driven:
 
 1. **Manual (human at the keyboard):** WSL2 + Ubuntu, Windows Terminal config, `.wslconfig`,
-   the prerequisites above, Claude Code install, `claude` auth. Nothing exists to delegate to yet.
+   the prerequisites above, Git for Windows, Claude Code install, `claude` auth. Nothing exists to delegate to yet.
 2. **Handoff.** `claude` runs and is signed in. Stop typing commands.
 3. **Agent-driven (human approving):** start Claude Code and hand it this doc plus `SETUP.md` as
-   its runbook — repo clone, `user-config.json` placement, vault scaffold + symlink, skills and
-   hooks, Google OAuth file moves, Task Scheduler wiring. The agent executes; the installer and
-   client read and approve each step.
+   its runbook — repo clone, `user-config.json` placement (it lives on the Windows side, in
+   `Downloads` or `OneDrive\Downloads`; the agent copies it in), vault symlink **then** scaffold,
+   skills and hooks, and — only when the client has a Google account — the OAuth file moves and
+   scheduler wiring. The agent executes; the installer and client read and approve each step.
 
 Why: the agent runs *inside* WSL, resolves Linux paths natively, probes both Windows Downloads
 locations itself, and self-corrects when a path is wrong. Every manual cross-boundary file move
@@ -241,7 +261,8 @@ The PC path replaces or rewrites these `SETUP.md` sections:
 | (no equivalent) | **New step:** write `.wslconfig` (RAM cap), `wsl --shutdown`, restart |
 | **Section 8: Configure Ghostty** (`~/.config/ghostty/config`) | **Configure Windows Terminal** — set Ubuntu as default profile, light theme, font size. No Ghostty. |
 | Pane shortcuts (Ghostty) | Windows Terminal pane shortcuts (Alt+Shift+± to split) |
-| Vault at `~/<systemName>/`, Obsidian opens it directly | Vault at `C:\Users\<user>\Documents\<systemName>` (Windows Obsidian opens it directly); `~/<systemName>` is a symlink to it inside WSL (hardening fix #2) |
+| Vault at `~/<systemName>/`, Obsidian opens it directly | Vault at `C:\Users\<user>\<systemName>` (profile root, not Documents/OneDrive; Windows Obsidian opens it directly); `~/<systemName>` is a symlink to it inside WSL, created BEFORE Section 6 (hardening fix #2) |
+| **Section 7: Obsidian Git** uses the Mac's git | Needs **Git for Windows** (`winget install --id Git.Git -e`), installed during reboot dead time; `core.autocrlf false`. If blocked, drop `obsidian-git` from `community-plugins.json` for week one (hardening fix #2, item 4) |
 | `.zshrc` aliases | `.bashrc` aliases (Ubuntu default shell) |
 | **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. **OneDrive gotcha:** on most personal laptops, Known Folder Move relocates Downloads to `C:\Users\<u>\OneDrive\Downloads` — never assume the bare path (this bit Liz's Desktop in April 2026). Probe both, quoted against spaces in usernames: `WU="<WindowsUser>"; mkdir -p ~/.config/gws && cp "/mnt/c/Users/$WU/OneDrive/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json 2>/dev/null \|\| cp "/mnt/c/Users/$WU/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json`. Then verify: `ls ~/.config/gws/client_secret.json`. Same troubleshooting and "add yourself as a test user" rules from SETUP.md apply — and **publish the OAuth app out of Testing mode** or tokens die every 7 days (Becky's silent weekly failure). |
 | Wispr Flow dictation | **Handy** (handy.computer) — free, open-source, has a custom-word glossary; field-validated on Rob's install Aug 17 2026. Wispr Flow also runs on Windows now (paid) if the client already uses it. Win+H is the zero-install fallback but has no glossary. |
