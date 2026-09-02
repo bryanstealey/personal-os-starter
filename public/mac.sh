@@ -10,6 +10,8 @@ say()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33mWARN: %s\033[0m\n' "$*"; }
 die()  { printf '\n\033[1;31mSTOP: %s\033[0m\n' "$*"; exit 1; }
 
+main() {
+
 say "1/5  Homebrew  (this may install Apple's Command Line Tools first — 5-15 min, that's normal)"
 if ! command -v brew >/dev/null 2>&1 && [ ! -x /opt/homebrew/bin/brew ] && [ ! -x /usr/local/bin/brew ]; then
   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || die "Homebrew install failed."
@@ -59,3 +61,6 @@ cat <<'EOF'
   2. Sign in when Claude Code asks. When you see the prompt, type:  go
      The agent reads the override sheet and the runbook itself and takes it from there.
 EOF
+}
+
+main "$@" </dev/null

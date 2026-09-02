@@ -123,8 +123,12 @@ minutes; the client will tire.
    verified (Section 18 equivalent).
 3. **One real task completed:** Client on PC — triage 3 real emails via the paste loop.
    Client on Mac — one real site visit's notes + photos turned into a crew turnover doc.
-4. **The day ends on `/handoff`, not `/morning`.** The client runs `/handoff` in their own
-   session, then opens Obsidian and sees the new note in `00-inbox/processed/` with links
+4. **The day ends on `/handoff`, not `/morning`, and it happens IN THE VAULT.** When the install
+   is done, the install session (cwd `~/personal-os-installer`) is closed. The client opens a
+   new session with `cd ~/<systemName> && claude` — that is their named agent, with the vault
+   CLAUDE.md and hooks. The real task and the demo run there, never in the installer directory
+   (a handoff written there would file itself as `personal-os-installer_HANDOFF_v0001.md`).
+   The client runs `/handoff` in that vault session, then opens Obsidian and sees the new note in `00-inbox/processed/` with links
    to the people and buckets from their interview. That is the closing demo — memory,
    not a calendar. Then `/letsgo` in a fresh session to show it comes back.
 5. Install report saved locally (Section 27) — do NOT send it via gws; copy it off the
