@@ -37,6 +37,13 @@ fi
 # If we still don't have a vault path, can't lint
 [[ -z "$VAULT" ]] && exit 0
 
+# Resolve symlinks on both sides first: on a PC the vault is reached through
+# ~/<name> -> /mnt/c/... and the edited path may use either form.
+RESOLVED_FILE="$(readlink -f "$FILE_PATH" 2>/dev/null || printf '%s' "$FILE_PATH")"
+RESOLVED_VAULT="$(readlink -f "$VAULT" 2>/dev/null || printf '%s' "$VAULT")"
+[[ -n "$RESOLVED_FILE" ]] && FILE_PATH="$RESOLVED_FILE"
+[[ -n "$RESOLVED_VAULT" ]] && VAULT="$RESOLVED_VAULT"
+
 # Only lint .md files in the vault
 case "$FILE_PATH" in
   "$VAULT"/*.md|"$VAULT"/**/*.md) ;;

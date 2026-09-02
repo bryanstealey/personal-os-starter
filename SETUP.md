@@ -309,6 +309,7 @@ git -C "$VAULT_PATH" init -q
 git -C "$VAULT_PATH" config user.name "{{userName}}"
 git -C "$VAULT_PATH" config user.email "{{first email in googleAccounts}}"
 git -C "$VAULT_PATH" config core.autocrlf false
+git -C "$VAULT_PATH" config core.fileMode false   # PC: WSL sees every file as 100755, Windows git as 100644 — without this the vault reads "modified" forever
 ```
 
 > The vault gets a **fresh** git history later (Section 23 / nightly backup), with **no remote** unless the user opts into GitHub. Do **not** copy or inherit the installer's `.git`. The `cp -R ... /.` form copies the template's own files (and its shipped `.obsidian/`), not the installer repo's git metadata.

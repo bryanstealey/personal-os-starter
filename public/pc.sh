@@ -15,6 +15,10 @@ main() {
 
 [ "$(id -u)" -eq 0 ] && die "Run this as your normal Ubuntu user, not root."
 grep -qi microsoft /proc/version 2>/dev/null || warn "This doesn't look like WSL. Continuing anyway."
+if ! (cd /mnt/c 2>/dev/null && cmd.exe /c ver >/dev/null 2>&1 </dev/null); then
+  warn "Windows interop is not reachable from Ubuntu (cmd.exe failed). .wslconfig, the Windows apps, and the config copy below will be skipped."
+  warn "Find the Windows profile by eye later:  ls /mnt/c/Users   — and tell the install agent the path."
+fi
 
 say "1/7  System packages  (sudo password = the Ubuntu password you just created)"
 sudo apt-get update -y >/dev/null || die "apt update failed. Cert errors = corporate TLS inspection; try a phone hotspot for the download steps."

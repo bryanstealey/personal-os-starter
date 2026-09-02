@@ -19,7 +19,7 @@ letsgo/handoff loop is a habit.)
 | **23 — nightly backup / GitHub** | Run ONLY the `git init` + first commit. No GitHub, no nightly-backup script, no scheduler. Obsidian Git is the version history. |
 | **24 — System health** | Nothing to watch yet. Skip. `/letsgo` knows to stay silent when it's absent. |
 | **20 — Business/personal separation** | Skip regardless of config. One agent. |
-| **3 — `new-project` skill** | Do not install it this week (week-two item). Install letsgo, handoff, obsidian-markdown, link-backfill only. |
+| **3 — `new-project` skill** | Do not install it this week (week-two item). Install letsgo, handoff, obsidian-markdown, link-backfill only. SETUP.md has no copy line for link-backfill; use `cp -R setup-files/skills/core/link-backfill ~/.claude/skills/link-backfill`. |
 | **26 — the shipped summary + FAQ** | Replace the ENTIRE shipped summary and FAQ with the wording under "Words to use" below. The shipped text lists rituals, Google tools, and hooks that were not installed. |
 | **17.1 / 17.2 — email- and calendar-driven population** | Same dependency. Population happens by interview instead (see below). |
 | **21 — First project** | Week-one rule is ONE agent. Project agents start in week two, on the client's request. |
@@ -61,8 +61,9 @@ project name, the context bar, and their usage limits — Bryan wants this on fr
   wizard's field was labeled Google, the address in it is Outlook.
 - Section 16: offer **tasks** as a context source. Do not offer calendar or email scans.
 - The agent must never call `gws` or `calendar-agenda` on these machines; neither is
-  installed. Say "not connected by API yet," never "doesn't exist" or "not found" (a vault
-  hook blocks those phrasings).
+  installed. Say "not connected by API yet," never "doesn't exist," "not found," "no such file,"
+  or "no obvious" (a vault Stop hook blocks those phrasings and the agent has to redo its answer
+  in front of the client — if that happens once, it is expected, not broken).
 - Section 26 closing summary — say this instead of the shipped text:
   *"Two commands run your system. `/letsgo` starts a session and catches you up. `/handoff`
   ends one and files what happened into your vault. Everything in between is just talking.
