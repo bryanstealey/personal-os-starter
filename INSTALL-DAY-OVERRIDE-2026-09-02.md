@@ -105,6 +105,11 @@ skills. Do not list gws, a calendar wrapper, or system-health.
   personal gets written globally — it would have to be migrated when project agents arrive.
 - **Section 19 is fill-placeholders, never rewrite** — the shipped System Conventions block
   is what lets week-two project agents interoperate with the vault.
+- **Section 14 (Todoist), BOTH machines:** the runbook's hidden `read -rs` token prompt cannot
+  run inside the agent's shell (no terminal): on Linux it hangs, on the Mac it returns an EMPTY
+  token and writes `export TODOIST_API_TOKEN=""`. Have the client paste the token into the chat;
+  the agent writes the export line itself (`.zshrc` on Mac; `.bashrc` + `.profile` on PC) and
+  verifies with the todoist-query call under "Words to use."
 - Before starting: `config/setup-state.json` must be fresh (null `startedAt`) or the resume
   logic misfires. **Ignore the `startedAt` inside `config/user-config.json`** — the wizard stamps
   that one; only setup-state's field means "resume."
@@ -150,9 +155,7 @@ minutes; the client will tire.
 - **Real path, not symlink, wherever a path is written into a file:** `VAULT_PATH` in
   `~/.claude/settings.json` and the `{{vaultPath}}` token in `ob` both take
   `$(readlink -f ~/<systemName>)`. Then prove it: `ob orphans` must list real files, not "(none)".
-- Section 14 (Todoist): the runbook's hidden `read -rs` token prompt cannot run inside the
-  agent's shell (no terminal) — it hangs. Have the client paste the token into the chat, and
-  the agent writes the export line to `.bashrc` and `.profile` itself.
+
 - **Git for Windows** goes on during the WSL reboot dead time (`winget install --id Git.Git -e`),
   or Section 7's Obsidian Git shows "Git is not installed." If winget is blocked, remove
   `obsidian-git` from the vault's `.obsidian/community-plugins.json` before Obsidian opens.

@@ -409,7 +409,7 @@ Write the Ghostty config:
 
 ```
 # Ghostty configuration for Personal OS
-theme = {{terminalTheme}}
+theme = light:Catppuccin Latte,dark:Catppuccin Mocha
 
 # Unfocused pane transparency — makes it easy to see which pane is active
 # when running multiple Claude Code sessions side by side
@@ -423,7 +423,7 @@ window-padding-x = 8
 window-padding-y = 4
 ```
 
-Tell your user: "Ghostty configured with the {{terminalTheme}} theme. Restart Ghostty to see the change. You can always edit `~/.config/ghostty/config` to tweak it."
+If the user chose `terminalTheme: "dark"`, change the line to `theme = dark:Catppuccin Mocha,light:Catppuccin Mocha` so it stays dark regardless of the system setting. Validate before telling the user: `ghostty +validate-config` must print nothing. Tell your user: "Ghostty configured with the {{terminalTheme}} theme. Restart Ghostty to see the change. You can always edit `~/.config/ghostty/config` to tweak it."
 
 Update setup-state: step 8 complete.
 

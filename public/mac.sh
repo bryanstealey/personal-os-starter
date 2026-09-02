@@ -12,9 +12,18 @@ die()  { printf '\n\033[1;31mSTOP: %s\033[0m\n' "$*"; exit 1; }
 
 main() {
 
+say "0/5  Admin check + password  (Homebrew needs an Administrator account; enter your Mac login password once)"
+dsmemberutil checkmembership -U "$USER" -G admin 2>/dev/null | grep -q 'is a member' \
+  || die "This Mac account is not an Administrator. Homebrew cannot install. Sign in as an admin user, or have IT grant admin, then re-run."
+sudo -v </dev/tty || die "Could not get sudo. Check the password and re-run."
+# keep the sudo timestamp warm while Command Line Tools download (can take 15 min)
+( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) 2>/dev/null &
+KEEPALIVE=$!
+
 say "1/5  Homebrew  (this may install Apple's Command Line Tools first — 5-15 min, that's normal)"
 if ! command -v brew >/dev/null 2>&1 && [ ! -x /opt/homebrew/bin/brew ] && [ ! -x /usr/local/bin/brew ]; then
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || die "Homebrew install failed."
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+    || die "Homebrew install failed. If the error above mentions certificates or a download, this is corporate network TLS inspection: switch to a phone hotspot and re-run."
 fi
 if [ -x /opt/homebrew/bin/brew ]; then BREW=/opt/homebrew/bin/brew; else BREW=/usr/local/bin/brew; fi
 eval "$("$BREW" shellenv)"
@@ -23,13 +32,13 @@ grep -q 'brew shellenv' "$HOME/.zprofile" || echo "eval \"\$($BREW shellenv)\"" 
 echo "ok: $(brew --version | head -1)"
 
 say "2/5  Tools: jq, git, node, Obsidian, Ghostty"
-brew install jq git node >/dev/null 2>&1 || die "brew install failed (jq/git/node)."
+brew install jq git node >/dev/null || die "brew install failed (jq/git/node). Cert errors = corporate TLS inspection: phone hotspot and re-run."
 brew list --cask obsidian >/dev/null 2>&1 || brew install --cask obsidian >/dev/null 2>&1 || warn "Obsidian cask failed — download it from obsidian.md"
 brew list --cask ghostty  >/dev/null 2>&1 || brew install --cask ghostty  >/dev/null 2>&1 || warn "Ghostty cask failed — download it from ghostty.org (or use Terminal)"
 echo "ok: node $(node --version)"
 
 say "3/5  Claude Code  (native installer)"
-curl -fsSL https://claude.ai/install.sh | bash >/dev/null || die "Claude Code install failed."
+curl -fsSL https://claude.ai/install.sh | bash || die "Claude Code install failed. Cert errors = corporate TLS inspection: phone hotspot and re-run."
 LINE='export PATH="$HOME/.local/bin:$PATH"'
 for rc in "$HOME/.zshrc" "$HOME/.zprofile"; do
   touch "$rc"; grep -qF "$LINE" "$rc" || echo "$LINE" >> "$rc"
@@ -48,12 +57,19 @@ else
 fi
 if [ -f "$HOME/Downloads/user-config.json" ]; then
   cp "$HOME/Downloads/user-config.json" "$KIT_DIR/config/user-config.json" && echo "config copied from ~/Downloads"
+  # git identity for the vault's commits (a new Mac has none; Obsidian Git and Section 23 both need it)
+  GN="$(jq -r '.userName // empty' "$KIT_DIR/config/user-config.json" 2>/dev/null)"
+  GE="$(jq -r '.googleAccounts[0].email // empty' "$KIT_DIR/config/user-config.json" 2>/dev/null)"
+  [ -n "$GN" ] && git config --global user.name "$GN"
+  [ -n "$GE" ] && git config --global user.email "$GE"
+  [ -n "$GN" ] && [ -n "$GE" ] && echo "ok: git identity set for $GN"
 else
   printf '\n\033[1;31mCONFIG MISSING — do this before anything else:\033[0m\n'
   echo "  Get user-config.json onto this Mac (AirDrop from the wizard machine), then:"
   echo "  cp ~/Downloads/user-config.json $KIT_DIR/config/"
 fi
 
+kill "$KEEPALIVE" 2>/dev/null || true
 say "5/5  Done. Two things left:"
 cat <<'EOF'
   1. Open a NEW terminal window (so PATH is fresh) and run:

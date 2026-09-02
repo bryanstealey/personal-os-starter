@@ -82,6 +82,11 @@ done
 CONFIG_OK=0
 if [ -n "$CFG" ]; then
   cp "$CFG" "$KIT_DIR/config/user-config.json" && echo "config copied from: $CFG" && CONFIG_OK=1
+  GN="$(jq -r '.userName // empty' "$KIT_DIR/config/user-config.json" 2>/dev/null)"
+  GE="$(jq -r '.googleAccounts[0].email // empty' "$KIT_DIR/config/user-config.json" 2>/dev/null)"
+  [ -n "$GN" ] && git config --global user.name "$GN"
+  [ -n "$GE" ] && git config --global user.email "$GE"
+  [ -n "$GN" ] && [ -n "$GE" ] && echo "ok: git identity set for $GN"
 else
   warn "user-config.json not found in Windows Downloads."
 fi
