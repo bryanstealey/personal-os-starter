@@ -2,7 +2,9 @@
 
 You are a setup guide. Your job is to walk your user through building their personal operating system — an Obsidian vault + Claude Code + a terminal configuration that becomes their life OS.
 
-**Check `platform` first.** `config/user-config.json` has a `platform` field: `"mac"` or `"pc"`. If it's `"pc"`, the user is on Windows — **read `WINDOWS-SETUP.md` and follow the PC install path** (Windows Terminal + WSL2 Ubuntu). The Windows path is **beta and unvalidated** for this build — prefer Mac, and tell PC users so. The sections below are written for macOS (Ghostty + Homebrew); on a PC, `WINDOWS-SETUP.md` tells you what to substitute. Everything not called out there is identical across both platforms.
+**Check `platform` first.** `config/user-config.json` has a `platform` field: `"mac"` or `"pc"`. If it's `"pc"`, the user is on Windows — **read `WINDOWS-SETUP.md` and follow the PC install path** (Windows Terminal + WSL2 Ubuntu). The PC path got its first end-to-end validation run Aug 17, 2026; the fixes from that run are folded in, but capture everything that breaks. The sections below are written for macOS (Ghostty + Homebrew); on a PC, `WINDOWS-SETUP.md` tells you what to substitute. Everything not called out there is identical across both platforms.
+
+**The install is agent-driven from the earliest possible moment (standing process, Sept 1 2026).** The human phase is only what must exist before you do: platform prerequisites, Claude Code itself, authentication. From the moment you (Claude Code) are running and signed in, YOU execute this guide against the real machine — clone, file placement, config, wiring — with the human reading and approving each step. Never send the human off to type commands you can run yourself. On a PC this is doubly binding: every manual Windows↔WSL file move is a known fumble class you don't make (see `WINDOWS-SETUP.md`, "The Handoff Point").
 
 **Read `config/user-config.json` first.** Every decision the user made in the web app is there: their platform, system name, Google accounts, task system preference, permission mode, terminal theme, optional skills, buckets, context sources, their name, and timezone. Use these values throughout — never ask for information the config already provides. Throughout this guide, `{{systemName}}` means the value of `systemName` from that file (e.g. if they named it `atlas`, the vault lives at `~/atlas` and the heartbeat dir is `~/.atlas-health`).
 
@@ -53,7 +55,7 @@ On Apple Silicon, Homebrew installs to `/opt/homebrew/bin`. Make sure that's on 
 Install Claude Code with the **native installer** — not npm. The npm global package, combined with the `ignore-scripts=true` we set later, triggers a known post-install failure loop.
 
 ```bash
-curl -fsSL https://claude.ai/install.sh | sh
+curl -fsSL https://claude.ai/install.sh | bash
 ```
 
 The native installer puts `claude` in `~/.local/bin`. **Put that on PATH now, before first use**, so `claude` resolves for the rest of this install:
@@ -71,6 +73,10 @@ claude --version
 ```
 
 If `claude` still isn't found, open a new terminal tab (so the rc change loads) and re-check before proceeding.
+
+> **PC/WSL note:** on WSL the snippet above writes only `.bashrc`, which non-interactive shells
+> (hooks, scheduled jobs) never read. On a PC, write the PATH line to **both** `.bashrc` and
+> `.profile` — `WINDOWS-SETUP.md`'s prerequisites block does this correctly; use it instead.
 
 > **Why native, not npm:** the kit later sets `npm config set ignore-scripts true` machine-wide for supply-chain safety. An npm-installed `@anthropic-ai/claude-code` needs its post-install script to finish wiring the binary, which that setting blocks — leaving you in a "native binary not installed" loop. The native installer sidesteps this entirely.
 
@@ -1433,6 +1439,20 @@ Present a summary of everything installed:
 4. Type `/morning`
 
 That single command checks your calendar and email, looks at your priorities, and helps you pick what to work on. End the day with `/shutdown`. That's the loop.
+
+---
+
+### Driving Claude Code between rituals
+
+Teach these four prefixes before wrapping up — they're how you drive the tool all day, and
+nothing else in the install mentions them:
+
+| Type | What it does |
+|---|---|
+| `!` before a command | runs a shell command right in the session |
+| `/` | slash commands — this is where the rituals live |
+| `@` before a filename | pulls a file into the conversation |
+| `#` before a note | saves it to Claude's memory |
 
 ---
 

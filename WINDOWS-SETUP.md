@@ -1,8 +1,9 @@
 # Windows Setup Spec (PC Install Path)
 
-> ⚠️ **BETA.** Audited and corrected Aug 17, 2026 against Julian's June beta findings, Liz's field
-> data, and current platform docs — but not yet validated end-to-end on a fresh machine since the
-> corrections. The next PC install is the validation run; capture everything.
+> **Field-validated Aug 17, 2026** on a fresh Windows 11 machine (Rob's install — 14 findings,
+> `morgantown-ai_HANDOFF_v0007`), corrected Sept 1, 2026 from that run: install line `| bash`,
+> wizard PATH step, WSL install verification, Windows Terminal procedure, the vault-location
+> ruling, and the agent-driven handoff process. Still capture everything on every install.
 
 This is the decision record and install spec for running the Personal OS on a Windows PC.
 `SETUP.md` is written for macOS. Everything below is what changes when the client is on a PC.
@@ -83,15 +84,28 @@ Weaver OOM crisis, May 12 2026 — 6 GB was still not enough headroom next to Te
 Adobe + OneDrive). Lower on 8 GB; a 32 GB machine can take 8 GB. `processors` should be at
 most half the machine's cores. After writing it, run `wsl --shutdown` and reopen Ubuntu.
 
-### 2. Put the Obsidian vault inside WSL
+### 2. Put the Obsidian vault on the Windows filesystem, symlinked into WSL
 
-Do **not** leave the vault on the Windows side (`C:\Users\...`) with Claude Code reaching it via
-`/mnt/c/...` — that path crosses the VM boundary on the slow 9P protocol and causes file-lock conflicts
-with Obsidian's live sync.
+**Ruled Sept 1, 2026 (Bryan): the vault lives on the Windows side.** This reverses the previous
+guidance, which said to keep it inside WSL. The reversal is field-driven: Julian's machine has run
+the Windows-side layout daily for months with no problems, while the WSL-side layout was never
+validated on a real install — and Julian's June notes record Obsidian failing to watch WSL paths
+(EISDIR) when he tried the kit's layout.
 
-Instead, keep the vault in WSL's home directory (`~/<systemName>/`) and point the Windows Obsidian app
-at it via `\\wsl.localhost\Ubuntu\home\<user>\<systemName>`. One-time migration during setup; after that
-Claude Code and Obsidian read the same files at native Linux speed.
+The layout:
+
+1. Vault directory on Windows: `C:\Users\<user>\Documents\<systemName>` — Windows Obsidian opens
+   it directly, as a plain local folder.
+2. Symlink it into the WSL home so every kit path works unchanged:
+   ```bash
+   ln -s "/mnt/c/Users/<WindowsUser>/Documents/<systemName>" ~/<systemName>
+   ```
+3. Claude Code and all scripts use `~/<systemName>/` exactly as the Mac guide does.
+
+Known cost: `/mnt/c/...` crosses the VM boundary on the 9P protocol, which is slower than native
+Linux disk. In months of daily field use this has not mattered. If a future install hits real
+file-lock conflicts with Obsidian's live sync, capture the evidence before revisiting — do not
+preemptively migrate a vault into WSL.
 
 ### Username gotcha
 
@@ -99,6 +113,47 @@ Never hardcode the username in any walkthrough command — use `$HOME` or `$(who
 username was `eliza`, not `liz`; a hardcoded `/home/liz` would have silently operated on nothing.
 
 ---
+
+## Installing WSL2 + Ubuntu (verify, don't trust)
+
+`wsl --install` from an **admin** PowerShell installs the Windows features, the WSL2 kernel, AND
+Ubuntu in one command. Elevation is its own step: right-click Windows Terminal → Run as
+administrator. Then reboot — the reboot is required, not optional.
+
+**`wsl --install` has a partial-failure mode where everything looks like success** (command runs,
+download scrolls, reboot happens) but the distro never installed — a DNS hiccup during the fetch is
+enough (this exact failure hit Rob's install, Aug 17 2026). So after the reboot, verify before
+anything else:
+
+```powershell
+wsl -l -v    # must list Ubuntu. "no installed distributions" = the distro fetch failed.
+```
+
+Recovery if it failed: `wsl --list --online`, then `wsl --install -d <exact name>` (often
+`Ubuntu-24.04`, not `Ubuntu`). Fallback: install Ubuntu from the Microsoft Store.
+
+First launch of Ubuntu prompts for a UNIX username and password, independent of the Windows
+account. **The password field shows nothing while you type** — that's normal, keep typing. This
+password is also the `sudo` password; write it down for the client.
+
+Two more Windows quirks, so nobody burns time on them:
+- The Start-menu shortcut may register as `Ubuntu 24.04 LTS` or not appear at all. `wsl -l -v` is
+  the success signal, not the Start menu.
+- A newly installed distro won't show in Windows Terminal's dropdown until Terminal is fully
+  closed and reopened — profiles generate at launch.
+
+## Configure Windows Terminal (do this before handing the keyboard over)
+
+The mental model, in client-facing language: on a Mac there's Ghostty (the window) and zsh (the
+thing inside it that runs commands). The PC has the same stack plus one twist — Windows Terminal
+is the window, PowerShell is a shell that talks to Windows, and Ubuntu is a whole second operating
+system living inside the machine. The system gets installed entirely on the Ubuntu side.
+PowerShell gets used exactly once, to install WSL, and then never again.
+
+The factory default profile is PowerShell, so the + button drops the client into the wrong world.
+Fix it (20 seconds): **Windows Terminal → Settings → Default profile → Ubuntu → Save.** While in
+Settings: light theme if the client prefers it, and a comfortable font size. After this, every new
+tab and window opens straight into Ubuntu and PowerShell disappears from the client's life.
 
 ## WSL prerequisites (run once, right after creating the Ubuntu user)
 
@@ -126,7 +181,7 @@ for b in node npm npx; do ln -sf "$(command -v $b)" ~/.local/bin/$b; done
 #    machine-wide, which breaks the npm package's post-install wiring (the known
 #    failure loop SETUP.md Section 0 documents). The Linux native installer
 #    works unchanged inside WSL2 Ubuntu:
-curl -fsSL https://claude.ai/install.sh | sh
+curl -fsSL https://claude.ai/install.sh | bash
 
 # 4. Put ~/.local/bin on PATH — the kit installs calendar-agenda,
 #    nightly-backup, and system-health there (and claude lands there too).
@@ -146,6 +201,35 @@ Why each one:
 
 ---
 
+## The Handoff Point: once `claude` is authenticated, stop typing commands
+
+**This is the install process as of Sept 2026 (finding 13, Rob's install; ratified by Bryan
+Sept 1, 2026).** The manual phase ends the moment Claude Code runs and is authenticated.
+Everything after that is agent-driven:
+
+1. **Manual (human at the keyboard):** WSL2 + Ubuntu, Windows Terminal config, `.wslconfig`,
+   the prerequisites above, Claude Code install, `claude` auth. Nothing exists to delegate to yet.
+2. **Handoff.** `claude` runs and is signed in. Stop typing commands.
+3. **Agent-driven (human approving):** start Claude Code and hand it this doc plus `SETUP.md` as
+   its runbook — repo clone, `user-config.json` placement, vault scaffold + symlink, skills and
+   hooks, Google OAuth file moves, Task Scheduler wiring. The agent executes; the installer and
+   client read and approve each step.
+
+Why: the agent runs *inside* WSL, resolves Linux paths natively, probes both Windows Downloads
+locations itself, and self-corrects when a path is wrong. Every manual cross-boundary file move
+(`/mnt/c/...` vs `\\wsl.localhost\...`) is a chance to fumble — this class of error has bitten
+both real PC installs. Delegating it removes the class. It also shows the client the product
+doing real work on their machine inside the first hour, which is the sale.
+
+**Reboot checkpoint before the handoff:** after WSL is installed, `.wslconfig` written, the
+distro registered, and PATH changed, reboot Windows once more before starting the wiring phase.
+Stale interop state in a session that had all of that changed underneath it produces impossible
+symptoms (Rob's install: clipboard paste into Claude Code failing with an image confirmed on the
+clipboard; a restart fixed it instantly). General rule: on Windows, when something clipboard- or
+interop-related behaves impossibly, reboot before debugging.
+
+---
+
 ## What Changes vs. the Mac Guide
 
 The PC path replaces or rewrites these `SETUP.md` sections:
@@ -157,7 +241,7 @@ The PC path replaces or rewrites these `SETUP.md` sections:
 | (no equivalent) | **New step:** write `.wslconfig` (RAM cap), `wsl --shutdown`, restart |
 | **Section 8: Configure Ghostty** (`~/.config/ghostty/config`) | **Configure Windows Terminal** — set Ubuntu as default profile, light theme, font size. No Ghostty. |
 | Pane shortcuts (Ghostty) | Windows Terminal pane shortcuts (Alt+Shift+± to split) |
-| Vault at `~/<systemName>/`, Obsidian opens it directly | Vault in WSL home; Windows Obsidian opens `\\wsl.localhost\Ubuntu\home\<user>\<systemName>` |
+| Vault at `~/<systemName>/`, Obsidian opens it directly | Vault at `C:\Users\<user>\Documents\<systemName>` (Windows Obsidian opens it directly); `~/<systemName>` is a symlink to it inside WSL (hardening fix #2) |
 | `.zshrc` aliases | `.bashrc` aliases (Ubuntu default shell) |
 | **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. **OneDrive gotcha:** on most personal laptops, Known Folder Move relocates Downloads to `C:\Users\<u>\OneDrive\Downloads` — never assume the bare path (this bit Liz's Desktop in April 2026). Probe both, quoted against spaces in usernames: `WU="<WindowsUser>"; mkdir -p ~/.config/gws && cp "/mnt/c/Users/$WU/OneDrive/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json 2>/dev/null \|\| cp "/mnt/c/Users/$WU/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json`. Then verify: `ls ~/.config/gws/client_secret.json`. Same troubleshooting and "add yourself as a test user" rules from SETUP.md apply — and **publish the OAuth app out of Testing mode** or tokens die every 7 days (Becky's silent weekly failure). |
 | Wispr Flow dictation | **Handy** (handy.computer) — free, open-source, has a custom-word glossary; field-validated on Rob's install Aug 17 2026. Wispr Flow also runs on Windows now (paid) if the client already uses it. Win+H is the zero-install fallback but has no glossary. |
@@ -246,7 +330,8 @@ install. Her May 12 OOM crisis produced the 5 GB `.wslconfig` value above; her O
 redirect produced the Downloads-probe rule in Section 12.
 
 **This doc was audited and corrected August 17, 2026** (three-way review: Claude + Codex + Grok
-against current Microsoft/Anthropic docs). Still open after that pass: graduating the WSL2 steps
-into wizard steps, a native-Windows fallback runbook, a real "Configure Windows Terminal"
-procedure, and an iMessage-capture substitute. Capture what breaks on the next install and fold
-it back in.
+against current Microsoft/Anthropic docs), then **corrected again September 1, 2026** from Rob's
+Aug 17 field run (the audit missed the `| sh` failure because the line *reads* correct — the
+failure only appears on real Ubuntu, where `/bin/sh` is dash). Still open: graduating the WSL2
+steps into wizard steps, a native-Windows fallback runbook, and an iMessage-capture substitute.
+Capture what breaks on the next install and fold it back in.

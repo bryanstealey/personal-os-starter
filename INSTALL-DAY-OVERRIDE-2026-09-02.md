@@ -1,0 +1,84 @@
+# Install-Day Override — September 2, 2026 (read BEFORE SETUP.md)
+
+**To the agent running this install:** this file overrides SETUP.md wherever they conflict.
+Both of today's clients are on **corporate Microsoft 365 (Outlook/Teams), not Google.** The
+tenant administrator is not yet identified. Week one is deliberately simplified: **one
+right-hand agent per client, no project agents.**
+
+## Hard skips (do not run, do not mention as failures)
+
+| Section | Why |
+|---|---|
+| **12 — Google Workspace CLI** | No Google identity exists. Never open console.cloud.google.com. Never attempt the Anthropic M365 connector, a Graph app registration, or IMAP — all require tenant-admin consent, and a failed attempt can trip conditional-access alerts on the client's corporate account. |
+| **13 — Calendar wrapper** | Depends on gws. |
+| **17.1 / 17.2 — email- and calendar-driven population** | Same dependency. Population happens by interview instead (see below). |
+| **21 — First project** | Week-one rule is ONE agent. Project agents start in week two, on the client's request. |
+| **22 — multi-pane portions** | One pane, one agent, this week. Note: Section 22's `/letsgo` demo depends on Section 21's project existing — with both cut, **end the day on `/morning` instead** (the degraded, no-gws version). |
+
+If the client's wizard config carries an M365 address in `googleAccounts`, treat it as a
+label only — it is NOT a Google account. Do not drive it into any Google flow.
+
+## Section 15 (rituals) substitutions
+
+- `{{CALENDAR_COMMAND}}` → nothing. The morning ritual's calendar step becomes: **ask the
+  user** "what's on your calendar today?"
+- `{{GWS_COMMANDS}}` → "none — Microsoft 365, API access pending IT approval."
+- Morning step "scan email via gws" → **ask the user**: "any email that would change today?"
+- The agent must never call `gws` or `calendar-agenda` on these machines. If a hook or
+  script references them, it stays inert — that is expected, not broken.
+
+## The day-one email loop (say it to the client in these terms)
+
+Programmatic email and calendar access on a corporate Microsoft tenant needs a one-time
+approval from the company's IT administrator — that's a week-two conversation, already on
+the list. **Today: Outlook stays your mail client. You paste or export a thread into your
+agent; the agent thinks with you and drafts; you send from Outlook.** Nothing is broken;
+this is the designed interim path.
+
+## Week-one operating block (add to each client's vault CLAUDE.md, Section 19)
+
+```
+## Week-one operating mode
+One agent. Vault sessions only.
+Do not run new-project. Do not split into project panes.
+Email/calendar: not connected by API yet (Microsoft 365, IT approval pending).
+The user pastes or forwards content in; drafts are sent by the user from Outlook.
+Week two begins when the user says "let's start a new project."
+```
+
+## Config rules (both machines)
+
+- **All client context goes in the VAULT CLAUDE.md, never `~/.claude/CLAUDE.md`.** Nothing
+  personal gets written globally — it would have to be migrated when project agents arrive.
+- **Section 19 is fill-placeholders, never rewrite** — the shipped System Conventions block
+  is what lets week-two project agents interoperate with the vault.
+- Before starting: `config/setup-state.json` must be fresh (null `startedAt`) or the resume
+  logic misfires.
+
+## Population by interview (replaces Section 17's email/calendar scans)
+
+The agent asks, conversationally: who do you work with most (5–10 people), what are the
+3–4 areas of your work (these become buckets), what does a normal week look like, what's
+on fire right now. Write person stubs and bucket manifests from the answers. Budget ~45
+minutes; the client will tire.
+
+## Success definition for today (never cut)
+
+1. Claude Code authenticated; the client talking to their own **named** agent.
+2. Vault exists, CLAUDE.md carries the system name and the week-one block, connection
+   verified (Section 18 equivalent).
+3. **One real task completed:** Client on PC — triage 3 real emails via the paste loop.
+   Client on Mac — one real site visit's notes + photos turned into a crew turnover doc.
+4. Install report saved locally (Section 27) — do NOT send it via gws; copy it off the
+   machine by hand.
+
+## PC-specific (Julian)
+
+- Hardening pair is mandatory: `.wslconfig` memory cap; vault on the **Windows** filesystem
+  at `C:\Users\<user>\Documents\<systemName>`, symlinked to `~/<systemName>` in WSL.
+- If WSL is blocked (no admin rights, Intune/GPO policy, virtualization off, distro fetch
+  fails after `--web-download` and the Store): switch to the **native fallback** — `winget
+  install Anthropic.ClaudeCode`, Git for Windows, Obsidian, vault at
+  `Documents\<systemName>`, skip bash hooks and scheduling. Goal unchanged: the owner
+  talking to his named agent. Migrate to WSL in week two if IT unblocks it.
+- Ten minutes stuck → message Bryan. Never debug longer in front of the client.

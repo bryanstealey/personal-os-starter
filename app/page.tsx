@@ -1064,7 +1064,7 @@ function InstallStep({
     {
       key: "claudeCode" as const,
       name: "Claude Code",
-      install: "curl -fsSL https://claude.ai/install.sh | sh",
+      install: "curl -fsSL https://claude.ai/install.sh | bash",
       copyable: true,
       link: "https://docs.anthropic.com/en/docs/claude-code",
       desc: "Your AI partner. This is the native installer — it drops the 'claude' binary in ~/.local/bin. After it finishes, run 'claude' once in any terminal to authenticate with your Anthropic account.",
@@ -1101,7 +1101,7 @@ function InstallStep({
       key: "node" as const,
       name: "Node.js (via nvm)",
       install:
-        "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash && source ~/.bashrc && nvm install --lts",
+        "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.6/install.sh | bash && source ~/.bashrc && nvm install --lts",
       copyable: true,
       link: "https://github.com/nvm-sh/nvm",
       desc: "Run this inside Ubuntu (WSL). nvm installs Node into your home directory, which sidesteps the permission errors a system-wide install hits. Claude Code needs Node, so this goes first.",
@@ -1109,10 +1109,11 @@ function InstallStep({
     {
       key: "claudeCode" as const,
       name: "Claude Code",
-      install: "curl -fsSL https://claude.ai/install.sh | sh",
+      install:
+        "curl -fsSL https://claude.ai/install.sh | bash && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.profile && export PATH=\"$HOME/.local/bin:$PATH\" && command -v claude && claude --version",
       copyable: true,
       link: "https://docs.anthropic.com/en/docs/claude-code",
-      desc: "Your AI partner. Run this native installer inside Ubuntu (WSL), then run 'claude' once to authenticate with your Anthropic account.",
+      desc: "Your AI partner. Run this inside Ubuntu (WSL) — note it's 'bash', not 'sh' (Ubuntu's sh can't parse the installer). The installer drops the 'claude' binary in ~/.local/bin; the extra lines put that on PATH for both interactive and scheduled shells, and the command must end by printing a path and a version. Then run 'claude' once to authenticate with your Anthropic account.",
     },
   ];
 
