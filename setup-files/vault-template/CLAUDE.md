@@ -57,9 +57,10 @@ reason to change them — your assistant relies on them on every vault touch.*
   and `/handoff` (capture what happened). Start fresh sessions per unit of
   work; let context carry forward through handoffs, not through an
   ever-growing thread.
-- **Run 3-6 active projects, not thirty.** Each project is its own directory
-  with its own `CLAUDE.md`, git history, and shell alias. More than a
-  handful and you stop actually finishing things.
+- **Run a handful of active projects, not thirty.** Each project is its own
+  directory with its own `CLAUDE.md` and git history. Week one is the vault
+  alone; projects come later, one at a time, when a real piece of work needs
+  its own room.
 - **Everything you route through the system is a deposit in a compounding
   record.** Handoffs, rituals, vault edits — each one is context that
   doesn't have to be re-explained next time. The more you route through it,
@@ -105,8 +106,8 @@ reason to change them — your assistant relies on them on every vault touch.*
 06-self/       ← Self-knowledge (working patterns, decisions, energy)
 ```
 
-Filesystem-to-command mapping: a file at `~/.claude/commands/morning.md` becomes the
-`/morning` slash command. Skills live under `.claude/skills/`.
+Filesystem-to-command mapping: a skill at `~/.claude/skills/letsgo/SKILL.md` becomes the
+`/letsgo` slash command; a file at `~/.claude/commands/<name>.md` becomes `/<name>`.
 
 ## The session loop
 

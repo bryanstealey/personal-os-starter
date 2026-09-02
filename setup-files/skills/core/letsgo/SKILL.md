@@ -58,7 +58,7 @@ Collect ALL handoff candidates from every location, then pick the single highest
 
 **For the vault:**
 - Read the vault's `CLAUDE.md` if it exists
-- Scan `00-inbox/` root for unprocessed files (not `processed/`, not `signals/`). If found, flag: "Unprocessed inbox item: [filename]"
+- Scan `00-inbox/` root for unprocessed files (not `processed/`, not `signals/`, and **not `brain-dump.md`** — that is the standing capture file, never "unprocessed"). If found, flag: "Unprocessed inbox item: [filename]"
 - If `05-system/pending-links.md` exists and has unchecked `- [ ]` lines, add one line: `Pending links: N to confirm` (the handoff skill queues uncertain wikilinks there; this is where they get surfaced when no daily ritual is installed)
 
 **For known projects (`~/projects/*`):**

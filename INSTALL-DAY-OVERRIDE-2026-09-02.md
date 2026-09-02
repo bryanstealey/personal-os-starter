@@ -37,6 +37,26 @@ project name, the context bar, and their usage limits — Bryan wants this on fr
 
 ## Words to use (client-facing)
 
+- Section 0: the bootstrap script already did all of it. **Verify only** (`command -v claude jq node git`);
+  do not re-run Homebrew or the Claude installer.
+- Section 1's scripted speech promises "morning and shutdown rituals" and "a nightly backup." **Do not
+  say those.** Promise: your vault, two commands (`/letsgo`, `/handoff`), a few safety hooks, and
+  Obsidian's local version history. Teach only the session bookend.
+- Sections 2-3: use `/letsgo` as the example command, not `/morning`. Where Section 3 says "we'll run it
+  for real in Section 22," say "at the end of today."
+- Section 10: **merge** into `~/.claude/settings.json`, never overwrite — Section 9 already wrote the
+  `statusLine` entry. Confirm afterwards: `jq .statusLine ~/.claude/settings.json` is still set.
+- Section 11: install `load-core-artifacts` too (harmless). Final count to say: "4 global, 1 vault."
+  PC only, after copying the hooks:
+  `sed -i.bak 's/Claude Code in Ghostty/Claude Code in Windows Terminal/; s/open <path>/explorer.exe <path>/' ~/.claude/hooks/terminal-context-guard.sh && rm ~/.claude/hooks/terminal-context-guard.sh.bak`
+- Section 14 (Todoist): SETUP.md never installs the query tool. After writing the export lines:
+  `cp setup-files/scripts/todoist-query ~/.local/bin/ && chmod +x ~/.local/bin/todoist-query`
+  then verify in ONE shell call: `export TODOIST_API_TOKEN=<token>; todoist-query 'filter=today' | jq length`.
+  Skip Section 14 step 5 (the Inbox project ID hunt — it feeds rituals that aren't installed).
+- Section 18: on the PC, Graph View is **Ctrl+G**, not Cmd+G.
+- Section 27: write the report file and tell the installer its path. No closing speech about emailing
+  or AirDropping it to Bryan; the installer copies it by hand.
+
 - Section 1 greeting: say **"email account (Microsoft 365)"**, never "Google account" — the
   wizard's field was labeled Google, the address in it is Outlook.
 - Section 16: offer **tasks** as a context source. Do not offer calendar or email scans.
@@ -86,7 +106,8 @@ skills. Do not list gws, a calendar wrapper, or system-health.
 - **Section 19 is fill-placeholders, never rewrite** — the shipped System Conventions block
   is what lets week-two project agents interoperate with the vault.
 - Before starting: `config/setup-state.json` must be fresh (null `startedAt`) or the resume
-  logic misfires.
+  logic misfires. **Ignore the `startedAt` inside `config/user-config.json`** — the wizard stamps
+  that one; only setup-state's field means "resume."
 
 ## Population by interview (replaces Section 17's email/calendar scans)
 

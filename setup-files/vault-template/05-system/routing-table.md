@@ -11,10 +11,10 @@ Every input to your system follows one pattern: **capture at the point of occurr
 
 | Input Type | Capture Point | Canonical Location | Verify Step | Alert Channel |
 |---|---|---|---|---|
-| Brain dump capture | `00-inbox/brain-dump.md` | Routed per shutdown routing rules | Shutdown ritual | Ritual surfacing |
-| Calendar event | Google Calendar API | Calendar (external) | `calendar-day-verify` hook (writes) + morning (reads) | Hook deny (writes) / morning ritual (reads) |
-| Email (inbound) | Gmail API via `gws` | Surfaced narrowly in morning's priority scan | Morning ritual (narrow scan, not full triage) | Morning ritual |
-| Task (from task system) | Task system API | Task system (external) | Morning / shutdown reconciliation | Morning ritual |
+| Brain dump capture | `00-inbox/brain-dump.md` | Routed to buckets / tasks on request or at `/handoff` | Handoff (or `/shutdown` once installed) | `/letsgo` surfacing |
+| Calendar event | Connected calendar tool if one is listed under Tools in `CLAUDE.md`; otherwise the user tells the agent | Calendar (external) | Agent asks before creating or changing events | Conversation |
+| Email (inbound) | Connected mail tool if one is listed under Tools; otherwise the user pastes or forwards it in | Mail client (external) | Agent drafts; the user sends | Conversation |
+| Task (from task system) | Task system CLI (e.g. `todoist-query`) | Task system (external) | Reconciled at `/handoff` (and in rituals once installed) | `/letsgo` surfacing |
 | Vault file edit | Edit/Write tool | Vault `.md` files | `obsidian-lint` hook (frontmatter + links) | Hook additionalContext |
 | Correction event | User states correction | Authoritative vault file + `corrections.jsonl` | Weekly review | Ritual surfacing |
 | Signal file | External process writes to `00-inbox/signals/` | Routed to bucket manifest | Shutdown processing | Shutdown ritual |
@@ -26,9 +26,9 @@ Each automated component and its monitoring binding. All components must have a 
 
 | Component | Cadence | Heartbeat Location | Sanity Check | Last Known Failure |
 |---|---|---|---|---|
-| Nightly backup | Nightly | `$HOME/.{{systemName}}-health/nightly-backup` | No "FAILED" in recent log entries | — |
+| Obsidian Git (local version history) | Every 10 min while Obsidian is open | Obsidian Git plugin status | `git log -1` in the vault shows a recent commit | — |
 
-*Add components here as automations are set up.*
+*Add components here as automations are set up (nightly backup, system-health, rituals).*
 
 ## Canonical People Index
 
