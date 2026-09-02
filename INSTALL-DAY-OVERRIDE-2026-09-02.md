@@ -108,6 +108,11 @@ minutes; the client will tire.
 
 ## PC-specific (Julian)
 
+- **Bootstrap is one line, typed inside Ubuntu:** `curl -fsSL https://personal-os-starter.vercel.app/pc.sh | bash`
+  (Mac: `.../mac.sh`). It does the whole prerequisites block, `.wslconfig`, the kit clone, and
+  the config copy. After the reboot: `cd ~/personal-os-installer && claude`, sign in, type `go`.
+  The installer's own CLAUDE.md loads this override and the runbook automatically.
+
 - Hardening pair is mandatory: `.wslconfig` memory cap (5GB on 16GB RAM — check the machine);
   vault on the **Windows** filesystem at `C:\Users\<user>\<systemName>` (profile root — NOT
   Documents, which is OneDrive on this tenant), symlinked to `~/<systemName>` in WSL.

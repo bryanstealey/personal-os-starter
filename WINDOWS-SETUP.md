@@ -176,6 +176,19 @@ tab and window opens straight into Ubuntu and PowerShell disappears from the cli
 
 ## WSL prerequisites (run once, right after creating the Ubuntu user)
 
+**Fastest path (Sept 2, 2026): the whole block below is one command**, served from the wizard's
+domain, typed by hand inside Ubuntu:
+
+```bash
+curl -fsSL https://personal-os-starter.vercel.app/pc.sh | bash
+```
+
+It installs the packages, Node, and Claude Code; writes PATH to both rc files; writes
+`.wslconfig` sized to the machine; clones the kit to `~/personal-os-installer`; copies
+`user-config.json` in from Windows Downloads (OneDrive-aware); and tries Git for Windows via
+winget. Then it tells you to reboot and run `cd ~/personal-os-installer && claude`. Re-running
+it is safe. The manual block below is the fallback and the record of what it does.
+
 Fresh Ubuntu doesn't ship everything the kit assumes. Install these **before** running `SETUP.md`, in this order:
 
 ```bash

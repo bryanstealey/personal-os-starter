@@ -2239,17 +2239,22 @@ function ExportStep({
 
           <div className="bg-slate-dark rounded-xl p-6">
             <p className="text-sm font-medium text-white/60 mb-3">
-              Step 2 &mdash; Clone the installer and drop your config in
+              Step 2 &mdash;{" "}
+              {config.platform === "pc"
+                ? "In Ubuntu (Windows Terminal), run this one line"
+                : "In Terminal, run this one line"}
             </p>
             <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed text-white/90 whitespace-pre-wrap break-all">
-              <span className="text-white/50">$</span> git clone
-              https://github.com/bryanstealey/personal-os-starter.git
-              ~/personal-os-installer
-              {"\n"}
-              <span className="text-white/50">$</span> mv
-              ~/Downloads/user-config.json ~/personal-os-installer/config/
+              <span className="text-white/50">$</span> curl -fsSL
+              https://personal-os-starter.vercel.app/
+              {config.platform === "pc" ? "pc.sh" : "mac.sh"} | bash
             </code>
             <p className="text-white/60 text-xs mt-3">
+              It installs the tools and Claude Code, pulls the installer into{" "}
+              <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-white/90">
+                ~/personal-os-installer
+              </code>
+              , and picks up the config you just downloaded. Safe to run twice.
               The installer lives in its own folder &mdash; separate from the vault
               it builds. Your vault gets created fresh at{" "}
               <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-white/90">
@@ -2268,7 +2273,8 @@ function ExportStep({
               &amp;&amp; claude
             </code>
             <p className="text-white/60 text-xs mt-3">
-              On first launch, Claude greets you by name, recaps what you&apos;ve
+              Sign in when it asks, then type <strong className="text-white">go</strong>.
+              Claude greets you by name, recaps what you&apos;ve
               configured, and continues straight into setup &mdash; installing
               skills, building your vault at{" "}
               <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-white/90">
