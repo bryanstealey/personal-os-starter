@@ -3,7 +3,10 @@
 **To the agent running this install:** this file overrides SETUP.md wherever they conflict.
 Both of today's clients are on **corporate Microsoft 365 (Outlook/Teams), not Google.** The
 tenant administrator is not yet identified. Week one is deliberately simplified: **one
-right-hand agent per client, no project agents.**
+right-hand agent per client, no project agents, and TWO commands — `/letsgo` and
+`/handoff`. No daily rituals this week.** (Feedback from earlier installs: three rituals
+on day one overwhelmed people. The rituals get added by Bryan in a later session, once the
+letsgo/handoff loop is a habit.)
 
 ## Hard skips (do not run, do not mention as failures)
 
@@ -11,21 +14,36 @@ right-hand agent per client, no project agents.**
 |---|---|
 | **12 — Google Workspace CLI** | No Google identity exists. Never open console.cloud.google.com. Never attempt the Anthropic M365 connector, a Graph app registration, or IMAP — all require tenant-admin consent, and a failed attempt can trip conditional-access alerts on the client's corporate account. |
 | **13 — Calendar wrapper** | Depends on gws. |
+| **9 — Status line (claude-hud)** | Its install text describes a plugin marketplace, not the file copy the section performs; it cannot work as written. Cosmetic anyway. |
+| **11 — two of the hooks** | Install obsidian-lint, npm-install-guard, terminal-context-guard (global) and read-before-claiming (vault). **Skip calendar-day-verify** (Google-only, inert) and **skip lookup-before-asking** (it blocks any response containing "can you paste" and coaches the agent toward Google Sheets — the exact sentence the paste loop needs). Two Stop hooks in the JSON become one. |
+| **15 — Rituals** | **Not installed this week.** Do not copy morning.md, shutdown.md, or weekly.md. The vault CLAUDE.md template already describes the two-command loop. |
+| **23 — nightly backup / GitHub** | Run ONLY the `git init` + first commit. No GitHub, no nightly-backup script, no scheduler. Obsidian Git is the version history. |
+| **24 — System health** | Nothing to watch yet. Skip. `/letsgo` knows to stay silent when it's absent. |
 | **17.1 / 17.2 — email- and calendar-driven population** | Same dependency. Population happens by interview instead (see below). |
 | **21 — First project** | Week-one rule is ONE agent. Project agents start in week two, on the client's request. |
-| **22 — multi-pane portions** | One pane, one agent, this week. Note: Section 22's `/letsgo` demo depends on Section 21's project existing — with both cut, **end the day on `/morning` instead** (the degraded, no-gws version). |
+| **22 — Multi-pane + first ritual** | Whole section. One pane, one agent, no rituals this week. The day ends on `/handoff` (see Success definition). |
 
 If the client's wizard config carries an M365 address in `googleAccounts`, treat it as a
 label only — it is NOT a Google account. Do not drive it into any Google flow.
 
-## Section 15 (rituals) substitutions
+## Words to use (client-facing)
 
-- `{{CALENDAR_COMMAND}}` → nothing. The morning ritual's calendar step becomes: **ask the
-  user** "what's on your calendar today?"
-- `{{GWS_COMMANDS}}` → "none — Microsoft 365, API access pending IT approval."
-- Morning step "scan email via gws" → **ask the user**: "any email that would change today?"
-- The agent must never call `gws` or `calendar-agenda` on these machines. If a hook or
-  script references them, it stays inert — that is expected, not broken.
+- Section 1 greeting: say **"email account (Microsoft 365)"**, never "Google account" — the
+  wizard's field was labeled Google, the address in it is Outlook.
+- Section 16: offer **tasks** as a context source. Do not offer calendar or email scans.
+- The agent must never call `gws` or `calendar-agenda` on these machines; neither is
+  installed. Say "not connected by API yet," never "doesn't exist" or "not found" (a vault
+  hook blocks those phrasings).
+- Section 26 closing summary — say this instead of the shipped text:
+  *"Two commands run your system. `/letsgo` starts a session and catches you up. `/handoff`
+  ends one and files what happened into your vault. Everything in between is just talking.
+  Email and calendar: Outlook stays your mail client this week; connecting them is the
+  week-two IT conversation."* Tomorrow's first move: open the terminal → `cd ~/<systemName>`
+  → `claude` → `/letsgo`.
+- Section 27: save the install report locally. **Do not offer to email it.** Report line
+  "Google accounts" → "Email: Microsoft 365, not connected."
+- On the PC, in Section 19 swap "Ghostty" → "Windows Terminal" and `open <path>` →
+  `explorer.exe <path>` wherever the template mentions them.
 
 ## The day-one email loop (say it to the client in these terms)
 
@@ -37,6 +55,9 @@ this is the designed interim path.
 
 ## Week-one operating block (add to each client's vault CLAUDE.md, Section 19)
 
+The template's **"The session loop"** section is already the week-one contract (letsgo in,
+handoff out, offer the handoff unprompted). Add this block directly under it:
+
 ```
 ## Week-one operating mode
 One agent. Vault sessions only.
@@ -45,6 +66,9 @@ Email/calendar: not connected by API yet (Microsoft 365, IT approval pending).
 The user pastes or forwards content in; drafts are sent by the user from Outlook.
 Week two begins when the user says "let's start a new project."
 ```
+
+Under **Tools**, list only what is really there: Todoist (if set up), `ob`, the installed
+skills. Do not list gws, a calendar wrapper, or system-health.
 
 ## Config rules (both machines)
 
@@ -69,7 +93,11 @@ minutes; the client will tire.
    verified (Section 18 equivalent).
 3. **One real task completed:** Client on PC — triage 3 real emails via the paste loop.
    Client on Mac — one real site visit's notes + photos turned into a crew turnover doc.
-4. Install report saved locally (Section 27) — do NOT send it via gws; copy it off the
+4. **The day ends on `/handoff`, not `/morning`.** The client runs `/handoff` in their own
+   session, then opens Obsidian and sees the new note in `00-inbox/processed/` with links
+   to the people and buckets from their interview. That is the closing demo — memory,
+   not a calendar. Then `/letsgo` in a fresh session to show it comes back.
+5. Install report saved locally (Section 27) — do NOT send it via gws; copy it off the
    machine by hand.
 
 ## PC-specific (Julian)
@@ -83,6 +111,9 @@ minutes; the client will tire.
 - **Real path, not symlink, wherever a path is written into a file:** `VAULT_PATH` in
   `~/.claude/settings.json` and the `{{vaultPath}}` token in `ob` both take
   `$(readlink -f ~/<systemName>)`. Then prove it: `ob orphans` must list real files, not "(none)".
+- Section 14 (Todoist): the runbook's hidden `read -rs` token prompt cannot run inside the
+  agent's shell (no terminal) — it hangs. Have the client paste the token into the chat, and
+  the agent writes the export line to `.bashrc` and `.profile` itself.
 - **Git for Windows** goes on during the WSL reboot dead time (`winget install --id Git.Git -e`),
   or Section 7's Obsidian Git shows "Git is not installed." If winget is blocked, remove
   `obsidian-git` from the vault's `.obsidian/community-plugins.json` before Obsidian opens.

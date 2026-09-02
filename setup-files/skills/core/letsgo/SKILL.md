@@ -7,14 +7,14 @@ description: Bootstrap a new Claude Code session with full project context. Run 
 
 This is a mechanical loader, not a ritual. Load context and report ready.
 
-## Step 0 — System Health (Vault only)
+## Step 0 — System Health (Vault only, and only if installed)
 
-If the current working directory is the user's vault (check for `.obsidian/` directory or match against the system name from config), run `system-health` and capture the output. Parse it for any stale components.
+If the current working directory is the user's vault (check for `.obsidian/` directory or match against the system name from config) **and** `command -v system-health` succeeds, run `system-health` and capture the output. Parse it for any stale components.
 
 - **All green:** say nothing about it. Silence means healthy.
 - **One or more stale:** add a single line to the status output: `System health: [N] stale — [names]`. Don't elaborate unless asked.
 
-Skip this step for non-vault directories (system-health is vault-scoped).
+If `system-health` is not installed (week-one systems have no automations to watch yet), skip this step **silently** — it is not a problem to report. Skip it too for non-vault directories.
 
 ## Step 1 — Detect Project Context
 
@@ -59,6 +59,7 @@ Collect ALL handoff candidates from every location, then pick the single highest
 **For the vault:**
 - Read the vault's `CLAUDE.md` if it exists
 - Scan `00-inbox/` root for unprocessed files (not `processed/`, not `signals/`). If found, flag: "Unprocessed inbox item: [filename]"
+- If `05-system/pending-links.md` exists and has unchecked `- [ ]` lines, add one line: `Pending links: N to confirm` (the handoff skill queues uncertain wikilinks there; this is where they get surfaced when no daily ritual is installed)
 
 **For known projects (`~/projects/*`):**
 - The project's `CLAUDE.md` auto-loads via Claude Code — no need to read it again
@@ -78,8 +79,8 @@ If no bucket manifest is referenced, skip this step.
 Do NOT read these files at boot. Hold them as known locations the agent can access when the conversation needs them:
 
 - **Today's daily note:** `~/[vault]/05-system/daily/YYYY-MM-DD.md` (use actual today's date)
-- **Google Calendar:** Run the calendar wrapper command when schedule context is needed
-- **Task list:** Query the user's task system when task context is needed
+- **Calendar:** only if a calendar command is listed under **Tools** in the vault `CLAUDE.md`. If none is listed, the calendar is **not connected** — ask the user when schedule context matters. Never run a calendar command that isn't listed there.
+- **Task list:** Query the user's task system when task context is needed (again, only if one is listed under Tools)
 
 These cost zero tokens at boot. The agent reads them on demand.
 
@@ -90,8 +91,9 @@ Present a status block with a short paragraph summarizing the last session. No h
 ```
 Loaded: [handoff name] ([age]) · [N] commits since · branch: [branch] · [uncommitted changes status]
 Project: [project name]
-[System health: N stale — names]   <- only if vault AND stale components exist
-[Next ritual: /morning | /shutdown]   <- only if vault; pick based on time
+[System health: N stale — names]   <- only if vault AND system-health is installed AND something is stale
+[Pending links: N to confirm]        <- only if the file exists with unchecked items
+[Next ritual: /morning | /shutdown]   <- only if vault AND ~/.claude/commands/morning.md exists; pick based on time
 
 [One paragraph summarizing what happened in the last session — the key threads,
 what was accomplished, what decisions were made, and where things left off. Write it so
@@ -101,7 +103,7 @@ point. Pull from the handoff's session summary and decisions log.]
 Ready. What are we working on?
 ```
 
-**Ritual pointer logic (vault only):**
+**Ritual pointer logic (vault only, and only when rituals are installed — check that `~/.claude/commands/morning.md` exists; if it doesn't, omit the line entirely and never mention rituals):**
 - Before 5:00 PM local time -> `Next ritual: /morning` (unless today's daily note already shows morning priorities filled in, in which case omit the pointer — nothing else is due yet)
 - After 5:00 PM -> `Next ritual: /shutdown`
 
@@ -110,7 +112,7 @@ This is informational — do not suggest running the ritual, just surface which 
 ## Rules
 
 - **Speed over thoroughness.** This should feel instant. No API calls at boot unless absolutely necessary. Git commands and file reads only.
-- **Never suggest priorities.** That is `/morning`'s job. `/letsgo` loads context; the user decides what to work on.
+- **Never suggest priorities.** That is `/morning`'s job (once installed). `/letsgo` loads context; the user decides what to work on.
 - **Never block on failure.** Missing handoff, missing git, missing files — degrade and continue. Always reach "Ready."
 - **Don't repeat what CLAUDE.md already provides.** Working style, behavioral rules, and tool configurations auto-load. Don't duplicate them.
 - **Handoff is the most critical artifact.** If only one thing loads successfully, it should be the handoff.

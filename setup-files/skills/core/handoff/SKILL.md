@@ -34,6 +34,12 @@ don't restart the count and don't renumber the old files.
 Filename convention: `[project]_HANDOFF_v####.md` in the project root.
 Examples: `my-project_HANDOFF_v0004.md`, `client-site_HANDOFF_v0001.md`.
 
+**If the current directory IS the vault** (it contains `.obsidian/`, or matches the
+system name in the vault `CLAUDE.md`), the handoff's home is
+`00-inbox/processed/` — write it there directly as `[systemName]_HANDOFF_v####.md`,
+search that folder for the version count, and skip the copy in Step 6.1 (the file
+is already where it belongs). Do not leave handoffs loose in the vault root.
+
 The project prefix is part of the filename from creation — not added later
 during routing. This keeps naming unambiguous everywhere the file lives.
 
@@ -234,8 +240,9 @@ file/dir if missing; skip if an identical entry is already queued):
 ```
 - [ ] `[entity as written]` in `[source file, with the sentence/context]` — [ambiguous: candidates file-a, file-b | new entity, no match]
 ```
-Your next morning/shutdown ritual surfaces this file so you confirm the handful
-of queued items in seconds — same day, not next week.
+Your next `/letsgo` surfaces this file (`Pending links: N to confirm`), and so do the
+morning/shutdown rituals once they are installed — you confirm the handful of queued
+items in seconds, same day, not next week.
 
 **Backstop (not a guarantee).** If your system runs a weekly vault-maintenance
 sweep that flags orphaned/unlinked entities, it catches stragglers — but only if

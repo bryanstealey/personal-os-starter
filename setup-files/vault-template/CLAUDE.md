@@ -108,20 +108,24 @@ reason to change them — your assistant relies on them on every vault touch.*
 Filesystem-to-command mapping: a file at `~/.claude/commands/morning.md` becomes the
 `/morning` slash command. Skills live under `.claude/skills/`.
 
-## Rituals
+## The session loop
 
-- `/morning` — 5-10 minutes. Orient and go. NOT where triage happens.
-- `/shutdown` — 3-5 minutes. Close the day, set tomorrow's first task.
-- `/weekly` — the anchor review. Bucket audit, commitment integrity, system
-  health, the focusing question, calendar design for the week ahead. Ships
-  with no fixed schedule — pick your own cadence (a recurring Friday
-  afternoon or Sunday evening slot works well for most people) and put it on
-  your own calendar. Nothing in the kit triggers it automatically.
+Two commands run this system:
 
-`/midday` is not shipped. It's a pattern some people add later — a
-middle-of-day ritual that clears input and resets afternoon priorities, once
-morning starts feeling crowded with triage that doesn't belong there. Model
-it on `/morning`'s structure if you build it.
+- `/letsgo` — start of every session. Loads the last handoff and reports ready.
+- `/handoff` — end of every session, or whenever the user sounds like they are
+  wrapping up. Captures what happened, files it in `00-inbox/processed/`, and
+  links it into the vault.
+
+**Start with letsgo. End with handoff. Everything in between is talking.**
+
+Offer `/handoff` yourself when the user says they are done, heading out, or
+switching to something else — don't wait to be asked. A session that ends without
+a handoff is context lost.
+
+Daily rituals (`/morning`, `/shutdown`, `/weekly`) are added later by the
+installer, once the loop above is a habit. If `~/.claude/commands/morning.md` does
+not exist, they are not installed yet — don't reference them or suggest them.
 
 ## Wiki-Link Conventions
 
@@ -181,11 +185,12 @@ a different timezone.
 [List of configured tools during setup — gws accounts, calendar wrapper, task system,
 installed plugins.]
 
-**Google Workspace:** the `gws` CLI is **PRIMARY** for all Gmail and Calendar work.
-The Google MCP connector is a **strict fallback**, used only when a corporate
-Workspace domain is admin-locked and the `gws` OAuth flow is blocked by policy. Do
-not route ritual email/calendar steps through MCP when `gws` is available, and ignore
-the unrelated `gws-mcp` npm package. This rule applies in every ritual's triage step.
+**Email and calendar:** only the tools listed above are connected. If no email or
+calendar tool is listed, they are **not connected by API yet** — the user pastes or
+forwards content in, you think and draft with them, and they send from their own
+mail client. Ask, don't assume, and never invent or guess a command. (When a Google
+Workspace CLI *is* listed above, it is PRIMARY for Gmail and Calendar and the Google
+MCP connector is a strict fallback.)
 
 **Web search:** the built-in `WebSearch` tool is the **default** for everything —
 looking things up, checking a fact, researching a topic. No MCP web-search or
