@@ -35,7 +35,8 @@ interface UserConfig {
   googleAccounts: {
     email: string;
     label: string;
-    accountType: "personal" | "workspace";
+    // "microsoft" = Microsoft 365 / Outlook — recorded, not connected (SETUP skips 12–13).
+    accountType: "personal" | "workspace" | "microsoft";
     // Redundant with accountType, kept explicit so the runbook can branch on
     // this field name directly without re-deriving it.
     corporateWorkspace: boolean;
@@ -117,27 +118,13 @@ const DEFAULT_CONFIG: UserConfig = {
 
 const OPTIONAL_SKILLS = [
   {
-    id: "x-reader",
-    name: "X / Twitter Reader",
-    description:
-      "Extracts full content from tweets — resolves shortened links, gets full text, engagement stats, and media. Useful if you save things on X throughout the day and want your system to read them.",
-    invokeType: "system" as const,
-  },
-  {
     id: "imessage-capture",
+    macOnly: true,
     name: "iMessage Self-Text Capture",
     description:
       "Monitors your iMessage for self-texts and routes them into your vault's brain dump, so the ideas and reminders you fire off to yourself never get lost.",
     note: "Requires macOS, and you'll need to grant your terminal Full Disk Access in System Settings → Privacy & Security so it can read the Messages database. Setup will walk you through it.",
-    invokeType: "system" as const,
-  },
-  {
-    id: "excalidraw-diagram",
-    name: "Excalidraw Diagrams",
-    description:
-      "Turns a workflow, architecture, or idea into a clean, editable Excalidraw diagram — for when a picture makes the argument better than a paragraph. You ask for one by name when you want it.",
-    note: "Rendering a diagram to an image needs a one-time local setup (a small Python runner plus a headless browser). Your assistant can handle that the first time you use it.",
-    invokeType: "user" as const,
+    invokeType: "system" as "system" | "user",
   },
 ];
 
@@ -188,7 +175,7 @@ const BUCKET_SUGGESTIONS = [
 
 // Welcome (0) is an unnumbered hero; Export (14) is an unnumbered completion.
 // Steps 1–13 carry the numbered progress.
-const NUMBERED_STEPS = 13;
+const NUMBERED_STEPS = 11;
 
 /* ------------------------------------------------------------------ */
 /* Shared UI                                                           */
@@ -1325,7 +1312,7 @@ function IdentityStep({
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 6 — Google accounts                                            */
+/* Step 6 — Email accounts                                             */
 /* ------------------------------------------------------------------ */
 
 function AccountsStep({
@@ -1366,7 +1353,10 @@ function AccountsStep({
     setConfig({ ...config, googleAccounts: updated });
   };
 
-  const updateAccountType = (i: number, val: "personal" | "workspace") => {
+  const updateAccountType = (
+    i: number,
+    val: "personal" | "workspace" | "microsoft",
+  ) => {
     const updated = [...config.googleAccounts];
     updated[i] = {
       ...updated[i],
@@ -1395,6 +1385,12 @@ function AccountsStep({
   const hasWorkspace = config.googleAccounts.some(
     (a) => a.accountType === "workspace",
   );
+  const hasMicrosoft = config.googleAccounts.some(
+    (a) => a.accountType === "microsoft",
+  );
+  const hasGoogle = config.googleAccounts.some(
+    (a) => a.accountType !== "microsoft",
+  );
 
   const removeAccount = (i: number) => {
     if (config.googleAccounts.length <= 1) return;
@@ -1407,8 +1403,8 @@ function AccountsStep({
   return (
     <StepFrame
       current={current}
-      title="Google accounts"
-      subtitle="Which Google accounts should your system connect to? We'll set up Gmail, Calendar, and Drive access for each one."
+      title="Email accounts"
+      subtitle="Which email accounts does your system work with? Google accounts get connected during setup. Microsoft 365 accounts are recorded now and connected once your IT administrator approves API access."
       onNext={onNext}
       onBack={onBack}
       nextDisabled={!config.googleAccounts[0]?.email.includes("@")}
@@ -1425,7 +1421,7 @@ function AccountsStep({
                   type="email"
                   value={acc.email}
                   onChange={(e) => updateAccount(i, "email", e.target.value)}
-                  placeholder="you@gmail.com"
+                  placeholder="you@company.com"
                   className={`flex-1 font-mono ${inputClass}`}
                 />
                 <input
@@ -1447,7 +1443,8 @@ function AccountsStep({
               <div className="flex gap-2">
                 {[
                   { id: "personal" as const, label: "Personal Gmail" },
-                  { id: "workspace" as const, label: "Company Workspace" },
+                  { id: "workspace" as const, label: "Google Workspace" },
+                  { id: "microsoft" as const, label: "Microsoft 365 (Outlook)" },
                 ].map((opt) => (
                   <button
                     key={opt.id}
@@ -1526,36 +1523,32 @@ function AccountsStep({
           </div>
         )}
 
-        <div className="border-t border-brand-tint/60 pt-6">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={config.businessPersonalSplit}
-              onChange={(e) =>
-                setConfig({ ...config, businessPersonalSplit: e.target.checked })
-              }
-              className="mt-1 w-5 h-5 rounded accent-brand"
-            />
-            <div>
-              <p className="font-medium text-sm text-slate-dark">
-                I need to keep business and personal contexts separate
-              </p>
-              <p className="text-ink-soft text-sm mt-1">
-                Claude Code currently uses a single config directory. We&apos;ll
-                set up project-level separation so your work and personal contexts
-                don&apos;t bleed into each other.
-              </p>
-            </div>
-          </label>
-        </div>
+        {hasMicrosoft && (
+          <div className="rounded-xl border border-brand-tint bg-brand-tint/20 p-5">
+            <p className="font-semibold text-sm text-slate-dark mb-2">
+              Microsoft 365 accounts
+            </p>
+            <p className="text-sm text-ink leading-relaxed">
+              Recorded as your email account. Connecting Outlook mail and calendar
+              to your agent needs a one-time approval from your company&apos;s IT
+              administrator, so setup skips the Google steps for this account.
+              Until it&apos;s connected, Outlook stays your mail client: you paste
+              or forward a thread to your agent, it thinks and drafts with you, and
+              you send from Outlook. Nothing is broken &mdash; that&apos;s the
+              designed interim path.
+            </p>
+          </div>
+        )}
 
-        <p className="text-ink-soft text-xs leading-relaxed">
-          Under the hood, Gmail, Calendar, and Drive run through the Google
-          Workspace CLI (
-          <code className="bg-paper px-1 py-0.5 rounded font-mono">gws</code>),
-          installed during setup. It&apos;s the primary path; the Google MCP
-          connector is a fallback only for admin-locked Workspace domains.
-        </p>
+        {hasGoogle && (
+          <p className="text-ink-soft text-xs leading-relaxed">
+            Under the hood, Gmail, Calendar, and Drive run through the Google
+            Workspace CLI (
+            <code className="bg-paper px-1 py-0.5 rounded font-mono">gws</code>),
+            installed during setup. It&apos;s the primary path; the Google MCP
+            connector is a fallback only for admin-locked Workspace domains.
+          </p>
+        )}
       </div>
     </StepFrame>
   );
@@ -1811,186 +1804,7 @@ function DictationStep({
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 9 — Financial tools                                            */
-/* ------------------------------------------------------------------ */
-
-function FinancialStep({
-  current,
-  config,
-  setConfig,
-  onNext,
-  onBack,
-}: {
-  current: number;
-  config: UserConfig;
-  setConfig: (c: UserConfig) => void;
-  onNext: () => void;
-  onBack: () => void;
-}) {
-  const options: { id: UserConfig["financialInterest"]; name: string }[] = [
-    { id: "yes", name: "Yes — I'll connect read-only financial tools during setup" },
-    { id: "no", name: "No — keep money out of this system" },
-    { id: "later", name: "Not sure — I'll decide during setup" },
-  ];
-
-  return (
-    <StepFrame
-      current={current}
-      title="Financial tools"
-      subtitle="Read-only, always. Nothing in this system can move or spend money."
-      onNext={onNext}
-      onBack={onBack}
-    >
-      <div className="space-y-6">
-        <div className="rounded-xl border border-brand-tint bg-brand-tint/20 p-5 text-sm leading-relaxed text-ink">
-          <p>
-            I use read-only budgeting tools with zero spending capacity
-            (FreshBooks for business, YNAB for personal). Whether you connect
-            anything depends on your tools and your risk tolerance. The kit
-            doesn&apos;t automate money &mdash; it just can see what you choose to
-            show it.
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          {options.map((opt) => (
-            <label
-              key={opt.id}
-              className={`p-4 ${optionClass(config.financialInterest === opt.id)}`}
-            >
-              <div className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="financialInterest"
-                  checked={config.financialInterest === opt.id}
-                  onChange={() =>
-                    setConfig({ ...config, financialInterest: opt.id })
-                  }
-                  className="w-4 h-4 accent-brand"
-                />
-                <p className="font-semibold text-sm text-slate-dark">
-                  {opt.name}
-                </p>
-              </div>
-            </label>
-          ))}
-        </div>
-      </div>
-    </StepFrame>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Step 10 — GitHub                                                    */
-/* ------------------------------------------------------------------ */
-
-function GitHubStep({
-  current,
-  config,
-  setConfig,
-  onNext,
-  onBack,
-}: {
-  current: number;
-  config: UserConfig;
-  setConfig: (c: UserConfig) => void;
-  onNext: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <StepFrame
-      current={current}
-      title="GitHub"
-      subtitle="Effectively required — it's the backup rail for everything this kit builds."
-      onNext={onNext}
-      onBack={onBack}
-      nextDisabled={config.github.hasAccount && !config.github.username.trim()}
-    >
-      <div className="space-y-6">
-        <div className="bg-slate-dark rounded-xl p-6">
-          <p className="text-white/90 text-sm leading-relaxed">
-            I use GitHub for two things: backing my whole system up off my
-            machine every night, and hosting the web projects I build. Here&apos;s
-            the thing &mdash; I don&apos;t operate git myself. My agent does.
-            That&apos;s the model for every tool in this system you don&apos;t
-            deeply understand: your agent is the operator, you&apos;re the
-            director.
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-ink">What it gives you</p>
-          {[
-            "If your laptop dies, your brain survives.",
-            "A time machine — every day's state of your vault is recoverable.",
-            "It's how this kit and your future projects ship.",
-          ].map((item, i) => (
-            <div
-              key={item}
-              className="flex gap-3 items-start bg-brand-tint/25 rounded-xl p-3"
-            >
-              <p className="font-extrabold text-brand text-sm leading-none mt-0.5">
-                {i + 1}
-              </p>
-              <p className="text-ink text-sm leading-relaxed">{item}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="rounded-xl border border-brand-tint bg-brand-tint/20 p-4">
-          <p className="text-ink text-sm leading-relaxed">
-            <strong className="text-slate-dark">
-              Non-negotiable: vault repos are PRIVATE.
-            </strong>{" "}
-            This is your life. The setup creates private repos by default.
-          </p>
-        </div>
-
-        <div className="border-t border-brand-tint/60 pt-6 space-y-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={config.github.hasAccount}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  github: { ...config.github, hasAccount: e.target.checked },
-                })
-              }
-              className="mt-1 w-5 h-5 rounded accent-brand"
-            />
-            <p className="font-medium text-sm text-slate-dark">
-              I already have a GitHub account
-            </p>
-          </label>
-
-          {config.github.hasAccount ? (
-            <input
-              type="text"
-              value={config.github.username}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  github: { ...config.github, username: e.target.value },
-                })
-              }
-              placeholder="Your GitHub username"
-              className="w-full px-4 py-3 rounded-lg border border-brand-tint bg-card focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand font-mono text-sm"
-            />
-          ) : (
-            <p className="text-ink-soft text-sm leading-relaxed">
-              No problem — creating a free account (github.com) is one of the first
-              things setup will walk you through.
-            </p>
-          )}
-        </div>
-      </div>
-    </StepFrame>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Step 11 — Optional skills                                           */
+/* Step 9 — Optional skills                                            */
 /* ------------------------------------------------------------------ */
 
 function SkillsStep({
@@ -2014,6 +1828,10 @@ function SkillsStep({
         [id]: !config.optionalSkills[id],
       },
     });
+
+  const visibleSkills = OPTIONAL_SKILLS.filter(
+    (s) => !("macOnly" in s && s.macOnly) || config.platform === "mac",
+  );
 
   return (
     <StepFrame
@@ -2040,8 +1858,15 @@ function SkillsStep({
         </div>
       </div>
 
+      {visibleSkills.length === 0 && (
+        <p className="text-ink text-sm leading-relaxed">
+          No optional skills apply to Windows yet &mdash; the core skills cover
+          everything for now. Click Continue.
+        </p>
+      )}
+
       <div className="space-y-3">
-        {OPTIONAL_SKILLS.map((skill) => (
+        {visibleSkills.map((skill) => (
           <label
             key={skill.id}
             className={`p-4 ${optionClass(!!config.optionalSkills[skill.id])}`}
@@ -2091,7 +1916,7 @@ function SkillsStep({
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 12 — Life buckets                                              */
+/* Step 10 — Life buckets                                              */
 /* ------------------------------------------------------------------ */
 
 function BucketsStep({
@@ -2219,7 +2044,7 @@ function BucketsStep({
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 13 — Review                                                    */
+/* Step 11 — Review                                                    */
 /* ------------------------------------------------------------------ */
 
 function ReviewStep({
@@ -2253,26 +2078,20 @@ function ReviewStep({
             : `Ghostty · ${config.terminalTheme === "light" ? "Light" : "Dark"}`,
     },
     {
-      label: "Google accounts",
+      label: "Email accounts",
       value: config.googleAccounts
         .filter((a) => a.email)
         .map(
           (a) =>
             `${a.email}${a.label ? ` (${a.label})` : ""} — ${
-              a.accountType === "workspace" ? "Workspace" : "Personal"
+              a.accountType === "workspace"
+                ? "Google Workspace"
+                : a.accountType === "microsoft"
+                  ? "Microsoft 365"
+                  : "Personal Gmail"
             }`,
         )
         .join(", "),
-    },
-    {
-      label: "Biz/personal split",
-      value: config.businessPersonalSplit ? "Yes" : "No",
-    },
-    {
-      label: "GitHub",
-      value: config.github.hasAccount
-        ? config.github.username || "Account, username not set"
-        : "No account yet",
     },
     {
       label: "Task system",
@@ -2292,15 +2111,6 @@ function ReviewStep({
             ? "Not now"
             : DICTATION_OPTIONS.find((o) => o.id === config.dictation.choice)
                 ?.name || "—",
-    },
-    {
-      label: "Financial tools",
-      value:
-        config.financialInterest === "yes"
-          ? "Connecting read-only tools"
-          : config.financialInterest === "no"
-            ? "Keeping money out"
-            : "Deciding during setup",
     },
     {
       label: "Optional skills",
@@ -2341,7 +2151,7 @@ function ReviewStep({
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 14 — Export (completion)                                       */
+/* Step 12 — Export (completion)                                       */
 /* ------------------------------------------------------------------ */
 
 function ExportStep({
@@ -2593,7 +2403,7 @@ export default function Home() {
         />
       )}
       {step === 9 && (
-        <FinancialStep
+        <SkillsStep
           current={9}
           config={config}
           setConfig={setConfig}
@@ -2602,7 +2412,7 @@ export default function Home() {
         />
       )}
       {step === 10 && (
-        <GitHubStep
+        <BucketsStep
           current={10}
           config={config}
           setConfig={setConfig}
@@ -2611,27 +2421,9 @@ export default function Home() {
         />
       )}
       {step === 11 && (
-        <SkillsStep
-          current={11}
-          config={config}
-          setConfig={setConfig}
-          onNext={next}
-          onBack={back}
-        />
+        <ReviewStep current={11} config={config} onNext={next} onBack={back} />
       )}
-      {step === 12 && (
-        <BucketsStep
-          current={12}
-          config={config}
-          setConfig={setConfig}
-          onNext={next}
-          onBack={back}
-        />
-      )}
-      {step === 13 && (
-        <ReviewStep current={13} config={config} onNext={next} onBack={back} />
-      )}
-      {step === 14 && <ExportStep config={config} onBack={back} />}
+      {step === 12 && <ExportStep config={config} onBack={back} />}
     </main>
   );
 }

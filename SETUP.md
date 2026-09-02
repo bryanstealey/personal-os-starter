@@ -6,7 +6,7 @@ You are a setup guide. Your job is to walk your user through building their pers
 
 **The install is agent-driven from the earliest possible moment (standing process, Sept 1 2026).** The human phase is only what must exist before you do: platform prerequisites, Claude Code itself, authentication. From the moment you (Claude Code) are running and signed in, YOU execute this guide against the real machine — clone, file placement, config, wiring — with the human reading and approving each step. Never send the human off to type commands you can run yourself. On a PC this is doubly binding: every manual Windows↔WSL file move is a known fumble class you don't make (see `WINDOWS-SETUP.md`, "The Handoff Point").
 
-**Read `config/user-config.json` first.** Every decision the user made in the web app is there: their platform, system name, Google accounts, task system preference, permission mode, terminal theme, optional skills, buckets, context sources, their name, and timezone. Use these values throughout — never ask for information the config already provides. Throughout this guide, `{{systemName}}` means the value of `systemName` from that file (e.g. if they named it `atlas`, the vault lives at `~/atlas` and the heartbeat dir is `~/.atlas-health`).
+**Read `config/user-config.json` first.** Every decision the user made in the web app is there: their platform, system name, email accounts (Google or Microsoft 365), task system preference, permission mode, terminal theme, optional skills, buckets, context sources, their name, and timezone. Use these values throughout — never ask for information the config already provides. Throughout this guide, `{{systemName}}` means the value of `systemName` from that file (e.g. if they named it `atlas`, the vault lives at `~/atlas` and the heartbeat dir is `~/.atlas-health`).
 
 **You are running from a scratch install dir, NOT from inside the vault.** The web app cloned this kit to a scratch directory (e.g. `~/personal-os-starter-installer`). The vault you build lives separately at `~/{{systemName}}` and must NOT inherit this installer's `.git` or remote. Never run `git init`/`git add` from the installer dir as if it were the vault. All `setup-files/...` and `config/...` paths in this guide are **relative to the installer dir** — `cd` there before any `cp setup-files/...` command if you aren't already.
 
@@ -91,12 +91,12 @@ Read `config/user-config.json` and greet the user by their `userName`.
 Present a summary of their choices:
 - Platform: `{{platform}}`
 - System name: `{{systemName}}`
-- Google accounts: list them
+- Email accounts: list them — for `accountType: "microsoft"` say **"Microsoft 365 account"**, never "Google account"
 - Task system: `{{taskSystem}}`
 - Permission mode: `{{permissionMode}}` (`auto`, `restrictive`, or `permissive`)
 - Terminal: their choice (Ghostty, or "I already have a terminal I like")
 - Buckets they chose: list them
-- Optional skills: list any selected (x-reader and/or iMessage)
+- Optional skills: list any selected (iMessage, Mac only)
 
 Explain what's about to happen in plain language:
 
@@ -239,7 +239,7 @@ Update setup-state: step 4 complete.
 
 ## Section 5: Install Optional Skills
 
-Read `config/user-config.json` for the `optionalSkills` array. v1 offers exactly two opt-ins: **x-reader** and **iMessage**.
+Read `config/user-config.json` for the `optionalSkills` array. The wizard offers one opt-in: **iMessage** (Mac only). x-reader stays in the kit as a hand-delivered add-on — install it only if `optionalSkills` names it.
 
 If the array is empty, say: "You didn't select any optional skills — you can always add them later. Moving on."
 
@@ -707,6 +707,12 @@ Update setup-state: step 11 complete.
 ---
 
 ## Section 12: Connect Google Workspace CLI
+
+> **Microsoft 365 accounts (`accountType: "microsoft"`):** if every account in `googleAccounts`
+> is Microsoft, **skip Sections 12 and 13 entirely** — nothing here applies, and never attempt
+> a Google sign-in with an Outlook address. Under **Tools** in the vault CLAUDE.md write:
+> `Email/calendar: Microsoft 365 — not connected by API yet; the user pastes content in.`
+> Connecting Microsoft needs a one-time IT approval and is a follow-up session.
 
 "Google Workspace CLI (`gws`) gives Claude direct access to your Gmail and Google Calendar. This is how the rituals check your email and schedule."
 
@@ -1226,7 +1232,7 @@ Read the current `~/{{systemName}}/CLAUDE.md`. It has two regions:
 2. **`# System Conventions` region** — leave the prose as shipped. Only substitute the
    remaining template tokens (`{{systemName}}`, `{{kitVersion}}`) the same way they're
    substituted everywhere else. Do not delete or rewrite the Wiki-Link, Person-File,
-   Frontmatter, Rituals, or Canonical People Index sections.
+   Frontmatter, The session loop, or Canonical People Index sections.
 
 Use targeted edits (replace the bracketed placeholders), not a full rewrite, so the
 shipped conventions survive.
@@ -1551,7 +1557,7 @@ personal context):
 ## Stack
 - Platform: {{platform}}
 - Terminal: [Ghostty / existing terminal]
-- Google accounts: [count + whether any were corporate Workspace]
+- Email accounts: [count, and type — Personal Gmail / Google Workspace / Microsoft 365]
 - Task system: {{taskSystem}}
 - Optional skills: [x-reader / iMessage / none]
 - Buckets: [list]

@@ -22,8 +22,9 @@ letsgo/handoff loop is a habit.)
 | **21 — First project** | Week-one rule is ONE agent. Project agents start in week two, on the client's request. |
 | **22 — Multi-pane + first ritual** | Whole section. One pane, one agent, no rituals this week. The day ends on `/handoff` (see Success definition). |
 
-If the client's wizard config carries an M365 address in `googleAccounts`, treat it as a
-label only — it is NOT a Google account. Do not drive it into any Google flow.
+The wizard's account step has a **Microsoft 365 (Outlook)** type — pick it for both clients.
+The runbook then skips Sections 12–13 on its own. If a config somehow carries a Google type
+with an Outlook address, treat it as Microsoft anyway; never drive it into a Google flow.
 
 ## Section 9 (status line) — DO run it
 
