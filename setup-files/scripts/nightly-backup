@@ -58,9 +58,16 @@ echo "[$TIMESTAMP] Nightly backup starting" >> "$LOG"
 BACKUP_DIRS=("${VAULT_DIR}")
 if [ "${BACKUP_PROJECTS:-0}" = "1" ]; then
   PROJECT_DIRS="${PROJECT_DIRS:-$HOME/projects/}"
-  for pdir in ${PROJECT_DIRS}*/; do
-    [ -d "$pdir" ] && BACKUP_DIRS+=("$pdir")
-  done
+  # An empty PROJECT_DIRS would make the glob below "*/" and scan every folder in $HOME.
+  # Found by Darin's July 2026 audit. Empty means "no project dirs," so skip the scan.
+  if [ -z "$PROJECT_DIRS" ]; then
+    echo "[$TIMESTAMP] BACKUP_PROJECTS=1 but PROJECT_DIRS is empty; scanning no project dirs" >> "$LOG"
+  else
+    case "$PROJECT_DIRS" in */) ;; *) PROJECT_DIRS="$PROJECT_DIRS/";; esac
+    for pdir in "${PROJECT_DIRS}"*/; do
+      [ -d "$pdir" ] && BACKUP_DIRS+=("$pdir")
+    done
+  fi
   echo "[$TIMESTAMP] BACKUP_PROJECTS=1: also scanning $PROJECT_DIRS" >> "$LOG"
 fi
 
@@ -163,3 +170,11 @@ else
   rm -f "$HEARTBEAT_DIR/nightly-backup.error"
   date +%s > "$HEARTBEAT_DIR/nightly-backup"
 fi
+
+# Exit non-zero when the backup did not actually go offsite, so a scheduler or a
+# wrapper can see the failure instead of a clean exit over a broken backup (Darin's
+# July 2026 audit). The error file above already says why.
+if [ "$vault_has_remote" -eq 0 ] || [ "$failed" -ne 0 ]; then
+  exit 1
+fi
+exit 0
