@@ -766,6 +766,11 @@ If `gcloud` isn't present, do it in the browser (no `gcloud` required). Walk you
    - User type: **External** (choose **Internal** only for a Workspace org locked to that org).
    - Fill the required app name + email; save through the steps.
    - **In Test users, add EVERY Google address you're connecting** (each address in `googleAccounts`). **Most-forgotten step** — skip it and login dies with "Access blocked / app not verified." (Internal apps skip this.)
+3b. **Publish the app to Production — BEFORE anyone logs in. Never skip this.** An External app left in **Testing** issues sign-ins that **expire every 7 days**: Gmail and Calendar work on install day, then die silently a week later (`invalid_grant`), after the installer has gone home. It has already hit two installs (one lost four of five accounts at once). Internal apps don't expire and can skip 3b. Google gates the **Publish app** button behind fields it never marks required, so fill all three pages first:
+   - **Data Access** (Google Auth Platform → Data Access): **Add or remove scopes** → filter for and tick the scopes `gws auth login` will ask for: at minimum `.../auth/gmail.modify`, `.../auth/gmail.send` and `.../auth/calendar`; add `.../auth/tasks` if the task system is Google Tasks, and `.../auth/drive` only if the user wants Drive. Save. If a later login asks for a scope not on this list, add it here too.
+   - **Branding**: **App home page**, **Privacy policy link**, and an **Authorized domain** — all three, or Publish stays blocked with an error that points at Branding without naming them. Use the user's own website (e.g. `https://theirdomain.com` for the home page, their privacy page or the home page again for the privacy link, `theirdomain.com` as the domain). **No website at all → stop and ask the installer;** don't invent a domain.
+   - **Audience** → **Publish app** → confirm. Status must read **In production**. Ask for a screenshot of that word.
+   - What the user sees at login from now on: **"Google hasn't verified this app."** That's expected for a personal app. Click **Advanced** → **Go to <app name> (unsafe)** → Continue. Warn them before the first login so it doesn't scare them. No Google review is needed for personal use.
 4. **Create the OAuth client.** Left menu → **APIs & Services → Credentials** → **+ Create Credentials** → **OAuth client ID** → Application type: **Desktop app** → Create → **Download JSON**.
 5. **Place the file (safely — confirm exactly one match first):**
    ```bash
@@ -787,6 +792,8 @@ gws auth login
 ```
 
 "A browser opens — sign in with your primary address and grant the permissions. When you see 'Authentication successful,' come back and tell me."
+
+> If gws shows a scope picker, choose **Gmail and Calendar** (plus Tasks for Google Tasks) — never the `recommended` preset, which asks for 85+ scopes and fails on an unverified app. Same choice for every account. The scopes picked here must match the Data Access list from step 3b.
 
 **Additional accounts.** First confirm `~/.local/bin` is on PATH (set in Section 0). Then, for each additional account, create its own config dir, copy the shared `client_secret.json` into it, generate a wrapper, and run its own login:
 
@@ -811,6 +818,7 @@ gws-{{alias}} auth login
 **Troubleshooting (exact failures from real installs):**
 - `No OAuth client configured` → `client_secret.json` missing or in the wrong dir. For additional accounts it must be at `~/.config/gws-{{alias}}/client_secret.json`.
 - `Access blocked` / `app not verified` / `not a test user` → that email isn't a test user on the consent screen. Add it (step 3) and retry.
+- `Token has been expired or revoked.: invalid_grant` (usually about a week after install) → the app is still in **Testing**. Do step 3b, then re-run `auth login` for **every** account; old sign-ins don't upgrade on their own.
 - `blocked by your administrator` / `admin_policy_enforced` → corporate org policy; see the corporate-Workspace branch above.
 - **Don't grant IAM roles or use `gcloud` IAM** for a normal single-user install — only relevant when an account is a guest on someone else's project, which doesn't happen here.
 
@@ -822,6 +830,8 @@ gws-{{alias}} gmail +triage --max 1   # each additional account
 ```
 
 If `+triage` isn't available in this gws version, fall back to a documented read (e.g. `gws gmail messages list --params '{"userId":"me","maxResults":1}'`). Tell your user which accounts connected successfully.
+
+**Before leaving Section 12, confirm step 3b held:** ask for a screenshot of Google Auth Platform → Audience showing **In production**. If it says Testing, every account above dies in 7 days — publish now and redo each `auth login`.
 
 Update setup-state: step 12 complete.
 

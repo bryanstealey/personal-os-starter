@@ -5,7 +5,7 @@ import Image from "next/image";
 
 // Stamped into the generated config so each tester's build is identifiable
 // (pending a real update channel — fixes are hand-delivered for now).
-const KIT_VERSION = "0.1.0-test";
+const KIT_VERSION = "0.1.1-test";
 
 interface UserConfig {
   kitVersion: string;
@@ -68,6 +68,7 @@ interface UserConfig {
   // where the agent can reach the data itself. Exports as an empty object.
   contextSources?: Record<string, boolean>;
   userName: string;
+  claudePlan: "pro" | "max" | "none" | "unsure";
   timezone: string;
   alphaAcknowledged: boolean;
   costAcknowledged: boolean;
@@ -111,6 +112,7 @@ const DEFAULT_CONFIG: UserConfig = {
   buckets: [],
   contextSources: {},
   userName: "",
+  claudePlan: "unsure",
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   alphaAcknowledged: false,
   costAcknowledged: false,
@@ -1306,6 +1308,38 @@ function IdentityStep({
             Used when your system talks to you.
           </p>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-ink mb-2">
+            Which Claude plan do you have now?
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {(
+              [
+                ["pro", "Pro"],
+                ["max", "Max"],
+                ["none", "None yet"],
+                ["unsure", "Not sure"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setConfig({ ...config, claudePlan: id })}
+                className={`py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                  config.claudePlan === id
+                    ? "border-brand bg-brand-tint/40 text-slate-dark"
+                    : "border-brand-tint bg-card text-ink hover:border-brand/50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="text-ink-soft text-sm mt-2">
+            Pro is fine to start. You can move up later if you need to.
+          </p>
+        </div>
       </div>
     </StepFrame>
   );
@@ -2067,6 +2101,12 @@ function ReviewStep({
     { label: "Platform", value: config.platform === "pc" ? "PC (Windows)" : "Mac" },
     { label: "System name", value: config.systemName },
     { label: "First name", value: config.userName },
+    {
+      label: "Claude plan",
+      value: { pro: "Pro", max: "Max", none: "None yet", unsure: "Not sure" }[
+        config.claudePlan
+      ],
+    },
     { label: "Timezone", value: config.timezone },
     {
       label: "Terminal",
@@ -2228,6 +2268,10 @@ function ExportStep({
                 ? "✓ Downloaded user-config.json"
                 : "Download user-config.json"}
             </button>
+            <p className="text-white/80 text-sm mt-3">
+              If someone is doing your install with you, email them this file too.
+              It lands in your Downloads folder.
+            </p>
             <p className="text-white/60 text-xs mt-3">
               Stamped with kit version{" "}
               <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-white/90">
