@@ -1109,6 +1109,39 @@ function InstallStep({
   const items = isPc ? pcItems : macItems;
   const allChecked = items.every((item) => config.preflight[item.key]);
 
+  // Mac: the one-line installer on the last page installs every tool below.
+  // Nothing to run by hand here (hand-typed commands were the Aug 10 failure class).
+  if (!isPc) {
+    return (
+      <StepFrame
+        current={current}
+        title="The tools your system runs on"
+        subtitle="Nothing to install by hand. The last page gives you one line to paste into Terminal, and it installs all of these for you."
+        onNext={onNext}
+        onBack={onBack}
+        nextLabel="Continue"
+      >
+        <div className="space-y-3">
+          {[
+            ["Homebrew", "The Mac's installer for tools like these."],
+            ["Ghostty", "The terminal, where you'll talk to your system."],
+            ["Obsidian", "Where your notes and knowledge live."],
+            ["Node.js", "A runtime a few of the helpers need."],
+            ["Claude Code", "Your AI partner. You sign in to it once at the end."],
+          ].map(([name, what]) => (
+            <div
+              key={name}
+              className="rounded-xl border border-brand-tint bg-card px-5 py-4"
+            >
+              <p className="font-semibold text-sm text-slate-dark">{name}</p>
+              <p className="text-sm text-ink-soft leading-relaxed mt-1">{what}</p>
+            </div>
+          ))}
+        </div>
+      </StepFrame>
+    );
+  }
+
   return (
     <StepFrame
       current={current}
