@@ -20,15 +20,27 @@ sudo -v </dev/tty || die "Could not get sudo. Check the password and re-run."
 ( while true; do sudo -n true; sleep 60; kill -0 "$$" 2>/dev/null || exit; done ) 2>/dev/null &
 KEEPALIVE=$!
 
-say "1/5  Homebrew  (this may install Apple's Command Line Tools first — 5-15 min, that's normal)"
+say "1/5  Apple Command Line Tools + Homebrew  (5-15 min the first time, that's normal)"
+# Homebrew's own headless download of the Command Line Tools can fail to reach Apple's
+# Software Update server (Rob M., Oct 21 2026). Install them through Apple's popup first.
+if ! xcode-select -p >/dev/null 2>&1; then
+  xcode-select --install >/dev/null 2>&1 || true
+  echo "A window popped up asking to install the Command Line Tools. Click Install, then Agree."
+  echo "Waiting here until it finishes (up to 30 min)..."
+  for _ in $(seq 1 180); do xcode-select -p >/dev/null 2>&1 && break; sleep 10; done
+  xcode-select -p >/dev/null 2>&1 \
+    || die "The Command Line Tools did not finish installing. Run:  xcode-select --install   click Install in the popup, wait for it to finish, then re-run this script."
+fi
+echo "ok: Command Line Tools at $(xcode-select -p)"
 if ! command -v brew >/dev/null 2>&1 && [ ! -x /opt/homebrew/bin/brew ] && [ ! -x /usr/local/bin/brew ]; then
   NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
-    || die "Homebrew install failed. If the error above mentions certificates or a download, this is corporate network TLS inspection: switch to a phone hotspot and re-run."
+    || die "Homebrew install failed. If the error above mentions Command Line Tools or Software Update, run:  xcode-select --install   click Install, then re-run. If it mentions certificates, this is corporate network TLS inspection: switch to a phone hotspot and re-run."
 fi
 if [ -x /opt/homebrew/bin/brew ]; then BREW=/opt/homebrew/bin/brew; else BREW=/usr/local/bin/brew; fi
 eval "$("$BREW" shellenv)"
-touch "$HOME/.zprofile"
-grep -q 'brew shellenv' "$HOME/.zprofile" || echo "eval \"\$($BREW shellenv)\"" >> "$HOME/.zprofile"
+for rc in "$HOME/.zprofile" "$HOME/.bash_profile"; do
+  touch "$rc"; grep -q 'brew shellenv' "$rc" || echo "eval \"\$($BREW shellenv)\"" >> "$rc"
+done
 echo "ok: $(brew --version | head -1)"
 
 say "2/5  Tools: jq, git, node, Obsidian, Ghostty"
@@ -40,9 +52,16 @@ echo "ok: node $(node --version)"
 say "3/5  Claude Code  (native installer)"
 curl -fsSL https://claude.ai/install.sh | bash || die "Claude Code install failed. Cert errors = corporate TLS inspection: phone hotspot and re-run."
 LINE='export PATH="$HOME/.local/bin:$PATH"'
-for rc in "$HOME/.zshrc" "$HOME/.zprofile"; do
+for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bash_profile"; do
   touch "$rc"; grep -qF "$LINE" "$rc" || echo "$LINE" >> "$rc"
 done
+# Older Mac accounts still log in to bash, which never reads the zsh files (Rob M., Oct 21 2026).
+# Switch bash accounts (only) to zsh, the macOS default since 2019; .bash_profile above covers it if the switch fails.
+LOGIN_SHELL="$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')"
+if [ "${LOGIN_SHELL##*/}" = "bash" ]; then
+  sudo chsh -s /bin/zsh "$USER" >/dev/null 2>&1 && echo "ok: login shell switched from ${LOGIN_SHELL:-unknown} to zsh" \
+    || warn "Could not switch the login shell to zsh. PATH was added to ~/.bash_profile too, so claude should still be found."
+fi
 export PATH="$HOME/.local/bin:$PATH"
 command -v claude >/dev/null || die "claude is not on PATH after install."
 echo "ok: claude $(claude --version 2>/dev/null | head -1)"
