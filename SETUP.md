@@ -459,6 +459,18 @@ cp setup-files/config/claude-hud.json ~/.claude/plugins/claude-hud/config.json
 
 The status line refreshes on the next message. Confirm with your user that they can see the project name, a context bar, and a usage bar. `/claude-hud:configure` adjusts it later.
 
+**Main-agent badge.** Your user will run many Claude Code panes; the one in the vault is their right-hand agent, the one they talk to most. Give it a loud red badge so it is obvious at a glance. Other projects get no badge. Install the wrapper, fill in the system name, and point the status line at it:
+
+```bash
+SN="{{systemName}}"; UP=$(printf '%s' "$SN" | tr '[:lower:]' '[:upper:]')
+sed -e "s/{{SYSTEM_NAME}}/$UP/g" -e "s/{{systemName}}/$SN/g" setup-files/scripts/lead-statusline.sh > ~/.claude/lead-statusline.sh
+chmod +x ~/.claude/lead-statusline.sh
+```
+
+Then edit `~/.claude/settings.json` (Edit tool, not a blind append) so the `statusLine` block reads `{"type": "command", "command": "<home>/.claude/lead-statusline.sh"}`, with the real absolute home path. Keep every other setting. The wrapper still runs claude-hud after the badge, so nothing from the steps above is lost.
+
+Check it: start Claude Code in `~/{{systemName}}` and confirm the red badge with the system name in capitals, then `· your assistant`. Start it in any other folder and confirm there is no badge. If the user named their main agent something other than the system name, use that name for `UP` instead.
+
 > The kit's `setup-files/skills/silent/claude-hud/SKILL.md` is reference documentation for this plugin (license, options); it is not something to copy into `~/.claude/skills/`.
 
 If the marketplace add fails (no GitHub access from the machine), skip — the status line is a nice-to-have, not load-bearing. Log it in setup-state so it gets added at the first support session.

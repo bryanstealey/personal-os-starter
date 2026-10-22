@@ -23,7 +23,8 @@ SETUP.md Section 10 wrote `env` (`MAX_OUTPUT_TOKENS`, `NO_FLICKER`, `VAULT_PATH`
 a `permissions.allow` array for the chosen permission mode, and Section 11 added a
 `hooks` block (`PostToolUse` → obsidian-lint, `PreToolUse` → calendar-day-verify +
 npm-install-guard, `SessionStart` → load-core-artifacts). If your user ran
-`/claude-hud:setup` in Section 9, it may also have added a `statusLine` block.
+`/claude-hud:setup` in Section 9, it may also have added a `statusLine` block, and
+the main-agent badge wrapper at `~/.claude/lead-statusline.sh` (remove that file too).
 
 ```bash
 ls ~/.claude/settings.json.bak 2>/dev/null
