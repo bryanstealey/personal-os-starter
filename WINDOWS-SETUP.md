@@ -1,6 +1,6 @@
 # Windows Setup Spec (PC Install Path)
 
-> **Field-validated Aug 17, 2026** on a fresh Windows 11 machine (Rob's install — 14 findings,
+> **Field-validated Aug 17, 2026** on a fresh Windows 11 machine (a client install — 14 findings,
 > `morgantown-ai_HANDOFF_v0007`), corrected Sept 1, 2026 from that run: install line `| bash`,
 > wizard PATH step, WSL install verification, Windows Terminal procedure, the vault-location
 > ruling, and the agent-driven handoff process. Still capture everything on every install.
@@ -18,7 +18,7 @@ the terminal, the runtime, the file paths, and several setup sections.
 
 **Default for Windows clients: Windows Terminal + WSL2 Ubuntu, hardened.**
 
-This is the same architecture used for Liz Cook's install (April 2026), now turned into a deliberate
+This is the same architecture used for the first PC install (April 2026), now turned into a deliberate
 product spec instead of a battlefield improvisation — with the two real failure modes fixed up front.
 
 **Fallback: native Windows + Git for Windows** — only when WSL2 is genuinely blocked (corporate machine
@@ -59,12 +59,12 @@ Researched June 2026. Windows Terminal is the default for non-technical clients:
 
 ## The Two Hardening Fixes (mandatory on every Windows install)
 
-These turn the improvised Liz setup into a repeatable product.
+These turn the improvised first PC setup into a repeatable product.
 
 ### 1. Cap WSL2 memory with `.wslconfig`
 
 WSL2's default 50% RAM allocation fights Windows for memory and OOM-kills Claude Code on smaller
-machines. This is the crash that hit Liz on her 16 GB laptop. Ship this file as part of every install,
+machines. This is the crash that hit the first PC install on a 16 GB laptop. Ship this file as part of every install,
 at `C:\Users\<user>\.wslconfig`:
 
 ```
@@ -79,8 +79,8 @@ autoMemoryReclaim=gradual
 **`autoMemoryReclaim` must live under `[experimental]`, not `[wsl2]`** — under the wrong
 section the key is silently ignored (verified against Microsoft's `.wslconfig` docs, Aug 2026).
 
-Tune `memory` to the machine: **5 GB on a 16 GB laptop is the field-proven value** (Liz's
-Weaver OOM crisis, May 12 2026 — 6 GB was still not enough headroom next to Teams + Edge +
+Tune `memory` to the machine: **5 GB on a 16 GB laptop is the field-proven value** (the first PC
+install's OOM crisis, May 12 2026 — 6 GB was still not enough headroom next to Teams + Edge +
 Adobe + OneDrive). Lower on 8 GB; a 32 GB machine can take 8 GB. `processors` should be at
 most half the machine's cores. After writing it, run `wsl --shutdown` and reopen Ubuntu.
 
@@ -128,8 +128,8 @@ preemptively migrate a vault into WSL.
 
 ### Username gotcha
 
-Never hardcode the username in any walkthrough command — use `$HOME` or `$(whoami)`. Liz's Windows
-username was `eliza`, not `liz`; a hardcoded `/home/liz` would have silently operated on nothing.
+Never hardcode the username in any walkthrough command — use `$HOME` or `$(whoami)`. One client's Windows
+username was `jsmith2`, not `jsmith`; a hardcoded `/home/jsmith` would have silently operated on nothing.
 
 ---
 
@@ -141,7 +141,7 @@ administrator. Then reboot — the reboot is required, not optional.
 
 **`wsl --install` has a partial-failure mode where everything looks like success** (command runs,
 download scrolls, reboot happens) but the distro never installed — a DNS hiccup during the fetch is
-enough (this exact failure hit Rob's install, Aug 17 2026). So after the reboot, verify before
+enough (this exact failure hit an Aug 17 2026 install). So after the reboot, verify before
 anything else:
 
 ```powershell
@@ -235,7 +235,7 @@ Why each one:
 
 ## The Handoff Point: once `claude` is authenticated, stop typing commands
 
-**This is the install process as of Sept 2026 (finding 13, Rob's install; ratified by Bryan
+**This is the install process as of Sept 2026 (finding 13, Aug 17 install; ratified by Bryan
 Sept 1, 2026).** The manual phase ends the moment Claude Code runs and is authenticated.
 Everything after that is agent-driven:
 
@@ -257,7 +257,7 @@ doing real work on their machine inside the first hour, which is the sale.
 **Reboot checkpoint before the handoff:** after WSL is installed, `.wslconfig` written, the
 distro registered, and PATH changed, reboot Windows once more before starting the wiring phase.
 Stale interop state in a session that had all of that changed underneath it produces impossible
-symptoms (Rob's install: clipboard paste into Claude Code failing with an image confirmed on the
+symptoms (Aug 17 install: clipboard paste into Claude Code failing with an image confirmed on the
 clipboard; a restart fixed it instantly). General rule: on Windows, when something clipboard- or
 interop-related behaves impossibly, reboot before debugging.
 
@@ -277,8 +277,8 @@ The PC path replaces or rewrites these `SETUP.md` sections:
 | Vault at `~/<systemName>/`, Obsidian opens it directly | Vault at `C:\Users\<user>\<systemName>` (profile root, not Documents/OneDrive; Windows Obsidian opens it directly); `~/<systemName>` is a symlink to it inside WSL, created BEFORE Section 6 (hardening fix #2) |
 | **Section 7: Obsidian Git** uses the Mac's git | Needs **Git for Windows** (`winget install --id Git.Git -e`), installed during reboot dead time; `core.autocrlf false`. If blocked, drop `obsidian-git` from `community-plugins.json` for week one (hardening fix #2, item 4) |
 | `.zshrc` aliases | `.bashrc` aliases (Ubuntu default shell) |
-| **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. **OneDrive gotcha:** on most personal laptops, Known Folder Move relocates Downloads to `C:\Users\<u>\OneDrive\Downloads` — never assume the bare path (this bit Liz's Desktop in April 2026). Probe both, quoted against spaces in usernames: `WU="<WindowsUser>"; mkdir -p ~/.config/gws && cp "/mnt/c/Users/$WU/OneDrive/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json 2>/dev/null \|\| cp "/mnt/c/Users/$WU/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json`. Then verify: `ls ~/.config/gws/client_secret.json`. Same troubleshooting and "add yourself as a test user" rules from SETUP.md apply — and **publish the OAuth app out of Testing mode** or tokens die every 7 days (Becky's silent weekly failure). |
-| Wispr Flow dictation | **Handy** (handy.computer) — free, open-source, has a custom-word glossary; field-validated on Rob's install Aug 17 2026. Wispr Flow also runs on Windows now (paid) if the client already uses it. Win+H is the zero-install fallback but has no glossary. |
+| **Section 12 — Google OAuth app:** create the app + place `client_secret.json` (`mv ~/Downloads/...`) | **Browser steps are identical** (create project → enable Gmail + Calendar APIs → consent screen + add every connecting account as a **test user** → Desktop OAuth client → download JSON). The difference is the file move: the JSON downloads on the **Windows** side, but `gws` runs in WSL and reads the Linux path. **OneDrive gotcha:** on most personal laptops, Known Folder Move relocates Downloads to `C:\Users\<u>\OneDrive\Downloads` — never assume the bare path (this bit a client's Desktop in April 2026). Probe both, quoted against spaces in usernames: `WU="<WindowsUser>"; mkdir -p ~/.config/gws && cp "/mnt/c/Users/$WU/OneDrive/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json 2>/dev/null \|\| cp "/mnt/c/Users/$WU/Downloads/"client_secret_*.json ~/.config/gws/client_secret.json`. Then verify: `ls ~/.config/gws/client_secret.json`. Same troubleshooting and "add yourself as a test user" rules from SETUP.md apply — and **publish the OAuth app out of Testing mode** or tokens die every 7 days (a silent weekly failure seen in the field). |
+| Wispr Flow dictation | **Handy** (handy.computer) — free, open-source, has a custom-word glossary; field-validated on an Aug 17 2026 install. Wispr Flow also runs on Windows now (paid) if the client already uses it. Win+H is the zero-install fallback but has no glossary. |
 | iMessage self-text capture skill | Not available on Windows — skip or substitute |
 
 Everything else (skills, hooks, vault template, rituals, Google Workspace CLI, task system, claude-hud)
@@ -309,13 +309,13 @@ Why each piece:
 - **`bash -lc`** — a login shell reads `~/.profile`, which is why the prerequisites above write
   PATH (and the env-var mirrors) there. Plain `bash -c` gets a bare PATH and dies "command not found."
 - **`VAULT_DIR=` inline** — the script requires it and has no default. A missing `VAULT_DIR` is the
-  #1 silent-scheduled-backup failure from the Mac kit (Darin's install); same rule here.
+  #1 silent-scheduled-backup failure from the Mac kit (an early install); same rule here.
 - **Git auth note:** run one manual `git push` from inside WSL first so the credential is stored
   Linux-side (`gh auth login` or a stored HTTPS credential). The macOS keychain failure mode doesn't
   exist here, but an unauthenticated repo fails the same way — and the script's honest heartbeat
   will correctly refuse to go green.
 
-**Power settings are part of the install (Liz doctrine, July 2026):** plugged in → sleep Never,
+**Power settings are part of the install (field rule, July 2026):** plugged in → sleep Never,
 lid close → Do nothing, and pause Windows Update during the install day. Do NOT use PowerToys
 Awake or keep-awake apps — they release the wake-lock at the lock screen. A machine that sleeps
 at 11 PM has no nightly anything.
@@ -359,12 +359,12 @@ private, a zsh shebang in `system-health`, root-owned `/usr/local/bin` installs 
 and `user-config.json` landing on the Windows side of the divide. His install has run daily since,
 but was never formally confirmed complete against the checklist.
 
-**Liz's Weaver (April 24, 2026, Windows 11 / 16 GB)** remains the only completed real-world PC
-install. Her May 12 OOM crisis produced the 5 GB `.wslconfig` value above; her OneDrive Desktop
+**The first PC install (April 24, 2026, Windows 11 / 16 GB)** remains the only completed real-world PC
+install. Its May 12 OOM crisis produced the 5 GB `.wslconfig` value above; its OneDrive Desktop
 redirect produced the Downloads-probe rule in Section 12.
 
 **This doc was audited and corrected August 17, 2026** (three-way review: Claude + Codex + Grok
-against current Microsoft/Anthropic docs), then **corrected again September 1, 2026** from Rob's
+against current Microsoft/Anthropic docs), then **corrected again September 1, 2026** from an
 Aug 17 field run (the audit missed the `| sh` failure because the line *reads* correct — the
 failure only appears on real Ubuntu, where `/bin/sh` is dash). Still open: graduating the WSL2
 steps into wizard steps, a native-Windows fallback runbook, and an iMessage-capture substitute.

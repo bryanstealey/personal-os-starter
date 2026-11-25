@@ -22,7 +22,7 @@ KEEPALIVE=$!
 
 say "1/5  Apple Command Line Tools + Homebrew  (5-15 min the first time, that's normal)"
 # Homebrew's own headless download of the Command Line Tools can fail to reach Apple's
-# Software Update server (Rob M., Oct 21 2026). Install them through Apple's popup first.
+# Software Update server (field report, Oct 21 2026). Install them through Apple's popup first.
 if ! xcode-select -p >/dev/null 2>&1; then
   xcode-select --install >/dev/null 2>&1 || true
   echo "A window popped up asking to install the Command Line Tools. Click Install, then Agree."
@@ -55,7 +55,7 @@ LINE='export PATH="$HOME/.local/bin:$PATH"'
 for rc in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.bash_profile"; do
   touch "$rc"; grep -qF "$LINE" "$rc" || echo "$LINE" >> "$rc"
 done
-# Older Mac accounts still log in to bash, which never reads the zsh files (Rob M., Oct 21 2026).
+# Older Mac accounts still log in to bash, which never reads the zsh files (field report, Oct 21 2026).
 # Switch bash accounts (only) to zsh, the macOS default since 2019; .bash_profile above covers it if the switch fails.
 LOGIN_SHELL="$(dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')"
 if [ "${LOGIN_SHELL##*/}" = "bash" ]; then

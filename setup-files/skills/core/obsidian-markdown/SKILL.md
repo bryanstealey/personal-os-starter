@@ -196,7 +196,7 @@ for an entity that's only referenced in prose. Follow these whenever you write v
 content.
 
 - **Shortest-path links.** Use `[[filename|Display Name]]`, never full paths. Vault
-  filenames are unique, so `[[julie-kramer|Julie Kramer]]` always resolves and
+  filenames are unique, so `[[jane-doe|Jane Doe]]` always resolves and
   survives folder moves; full paths break on restructure.
 - **Bidirectionality.** If note A links to note B, B should link back to A somewhere
   (in the manifest or a connected file). Add the reverse link when you create the
@@ -213,7 +213,7 @@ content.
 
 ```yaml
 ---
-description: Client engagement manifest for Julie Kramer (Canine Cabins)
+description: Client engagement manifest for Jane Doe (Acme Boarding)
 topics:
   - dog boarding
   - referral source
