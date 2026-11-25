@@ -358,6 +358,8 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+const START_COMMAND = "cd ~/personal-os-installer && claude";
+
 function CommandRow({ command }: { command: string }) {
   return (
     <div className="flex items-stretch gap-2">
@@ -2236,6 +2238,9 @@ function ExportStep({
 }) {
   const [downloaded, setDownloaded] = useState(false);
   const configJson = JSON.stringify(config, null, 2);
+  const bootstrapCommand = `curl -fsSL https://personal-os-starter.vercel.app/${
+    config.platform === "pc" ? "pc.sh" : "mac.sh"
+  } | bash`;
 
   const download = useCallback(() => {
     const blob = new Blob([configJson], { type: "application/json" });
@@ -2321,11 +2326,14 @@ function ExportStep({
                 ? "In Ubuntu (Windows Terminal), run this one line"
                 : "In Terminal, run this one line"}
             </p>
-            <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed text-white/90 whitespace-pre-wrap break-all">
-              <span className="text-white/50">$</span> curl -fsSL
-              https://personal-os-starter.vercel.app/
-              {config.platform === "pc" ? "pc.sh" : "mac.sh"} | bash
-            </code>
+            {/* No "$" prompt marker: people copy it along with the command and the shell
+                fails with "command not found: $" (Tanner's install, Nov 25 2026). */}
+            <div className="flex items-stretch gap-2">
+              <code className="flex-1 min-w-0 block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono leading-relaxed text-white/90 whitespace-pre-wrap break-all">
+                {bootstrapCommand}
+              </code>
+              <CopyButton text={bootstrapCommand} />
+            </div>
             <p className="text-white/60 text-xs mt-3">
               It installs the tools and Claude Code, pulls the installer into{" "}
               <code className="bg-black/30 px-1.5 py-0.5 rounded font-mono text-white/90">
@@ -2345,10 +2353,12 @@ function ExportStep({
             <p className="text-sm font-medium text-white/60 mb-3">
               Step 3 &mdash; Start Claude Code from the installer
             </p>
-            <code className="block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono text-white/90 whitespace-pre-wrap break-all">
-              <span className="text-white/50">$</span> cd ~/personal-os-installer
-              &amp;&amp; claude
-            </code>
+            <div className="flex items-stretch gap-2">
+              <code className="flex-1 min-w-0 block bg-black/30 rounded-lg px-4 py-3 text-sm font-mono text-white/90 whitespace-pre-wrap break-all">
+                {START_COMMAND}
+              </code>
+              <CopyButton text={START_COMMAND} />
+            </div>
             <p className="text-white/60 text-xs mt-3">
               Sign in when it asks, then type <strong className="text-white">go</strong>.
               Claude greets you by name, recaps what you&apos;ve
