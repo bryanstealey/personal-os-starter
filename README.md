@@ -50,7 +50,7 @@ kit makes, if you decide it's not for you.
    ```
    git clone <repo> ~/personal-os-installer && mv ~/Downloads/user-config.json ~/personal-os-installer/config/
    ```
-3. Start your assistant from the installer: `cd ~/personal-os-installer && claude`.
+3. Start your assistant from the installer: `cd ~/personal-os-installer && ~/.local/bin/claude`.
    It reads your config, builds your vault fresh at `~/<your-system-name>`,
    connects your tools, and runs your first ritual with you.
 

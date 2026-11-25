@@ -128,7 +128,7 @@ cat <<'EOF'
   1. Reboot Windows once (Start -> Power -> Restart). This applies the memory cap and clears
      WSL interop state. Do not skip it.
   2. Open Ubuntu (Windows Terminal) and run:
-        cd ~/personal-os-installer && claude
+        cd ~/personal-os-installer && ~/.local/bin/claude
   3. Sign in when Claude Code asks. When you see the prompt, type:  go
      The agent reads the override sheet and the runbook itself and takes it from there.
 EOF

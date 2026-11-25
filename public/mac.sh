@@ -91,8 +91,8 @@ fi
 kill "$KEEPALIVE" 2>/dev/null || true
 say "5/5  Done. Two things left:"
 cat <<'EOF'
-  1. Open a NEW terminal window (so PATH is fresh) and run:
-        cd ~/personal-os-installer && claude
+  1. In this same window, run:
+        cd ~/personal-os-installer && ~/.local/bin/claude
   2. Sign in when Claude Code asks. When you see the prompt, type:  go
      The agent reads the override sheet and the runbook itself and takes it from there.
 EOF

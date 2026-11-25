@@ -358,7 +358,7 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-const START_COMMAND = "cd ~/personal-os-installer && claude";
+const START_COMMAND = "cd ~/personal-os-installer && ~/.local/bin/claude";
 
 function CommandRow({ command }: { command: string }) {
   return (
