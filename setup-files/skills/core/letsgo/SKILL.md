@@ -46,13 +46,21 @@ Collect ALL handoff candidates from every location, then pick the single highest
 2. Vault `00-inbox/processed/` — match files prefixed with the project name (e.g., `my-project_HANDOFF_v03.md`)
 3. Vault `00-inbox/processed/` — also check for cross-project handoffs if the project name has a parent prefix
 
+**How to search: one recursive `find`, never `ls`.** Run this single command from the project directory (swap in the real vault path for `~/[vault]`):
+
+```bash
+find . ~/[vault]/00-inbox/processed -maxdepth 3 \( -name .git -o -name node_modules \) -prune -o -type f \( -iname '*HANDOFF*.md' -o -iname '*WORKLOG*.md' \) -print 2>/dev/null || true
+```
+
+Then keep only the matches that belong to this project (local files, plus processed files prefixed with the project name). Why `find` and not `ls`: the read-before-claiming hook blocks any "No handoff found" that wasn't backed by a recursive search, so an `ls` check makes the very first `/letsgo` on a new install show "Stop hook reported a problem" for nothing (field report, Nov 25, 2026). `find` also catches a handoff filed one folder deeper, and it doesn't throw zsh's "no matches found" error when nothing exists yet. Empty output on a first session is normal.
+
 **Version extraction:** Parse the `_v<number>` suffix from each filename, accepting **any digit width** — current files are four-digit zero-padded (`HANDOFF_v0088.md`) but legacy files may still be two-digit (`HANDOFF_v87.md`), and both can coexist in one project during the transition. Local files use `HANDOFF_v####.md`; vault processed inbox uses `{project-name}_HANDOFF_v####.md`. Extract the numeric value (strip leading zeros) from either pattern and any width, and compare **numerically** — never lexically — across all matches so `v0088` correctly outranks `v87`.
 
 **Pick the single highest version number regardless of which location it came from.** Read that file. Do NOT load multiple handoffs — the newest should contain everything relevant.
 
 **Staleness check:** Compare the handoff's date against the most recent git commit. If there are commits after the handoff was written, note how many: "3 commits since handoff — context may be partially stale."
 
-**No handoff found:** Say "No handoff found — starting fresh." and move on. Do not block.
+**No handoff found:** After the `find` above comes back empty, say "No handoff found — starting fresh." and move on. Do not block. This is the normal result on a project's first session, not a problem to flag.
 
 ## Step 4 — Project-Specific Context
 
@@ -111,7 +119,7 @@ This is informational — do not suggest running the ritual, just surface which 
 
 ## Rules
 
-- **Speed over thoroughness.** This should feel instant. No API calls at boot unless absolutely necessary. Git commands and file reads only.
+- **Speed over thoroughness.** This should feel instant. No API calls at boot unless absolutely necessary. Git commands, file reads and the one handoff `find` only.
 - **Never suggest priorities.** That is `/morning`'s job (once installed). `/letsgo` loads context; the user decides what to work on.
 - **Never block on failure.** Missing handoff, missing git, missing files — degrade and continue. Always reach "Ready."
 - **Don't repeat what CLAUDE.md already provides.** Working style, behavioral rules, and tool configurations auto-load. Don't duplicate them.
