@@ -36,6 +36,7 @@ Testing-mode app's sign-ins die 7 days later.
 |---|---|
 | **3 — `new-project` skill** | Week-two item. Install letsgo, handoff, obsidian-markdown, link-backfill only. Copy line for link-backfill: `cp -R setup-files/skills/core/link-backfill ~/.claude/skills/link-backfill`. |
 | **11 — lookup-before-asking hook** | It blocks any reply containing "can you paste," which the client needs this week. Install the rest. |
+| **14 — Todoist** | No task manager is installed (Bryan, Nov 25, 2026: "no todoist, let's not use it"). Ignore `taskSystem` in the config. Dated commitments and the backlog live in the vault. Don't offer Todoist or Google Tasks. |
 | **15 — Rituals** | Not installed this week. Don't copy morning.md, shutdown.md or weekly.md. |
 | **20 — Business/personal separation** | One agent. |
 | **21 — First project** | Project agents start in week two, on the client's request. |
@@ -56,12 +57,6 @@ Testing-mode app's sign-ins die 7 days later.
   limits from hour one.
 - Section 10: **merge** into `~/.claude/settings.json`, never overwrite (Section 9 already
   wrote `statusLine`). Confirm with `jq .statusLine ~/.claude/settings.json`.
-- Section 14 (Todoist): the hidden `read -rs` token prompt can't run inside the agent's shell
-  (on the Mac it saves an EMPTY token). Have the client paste the token into the chat; write
-  the export line yourself; install `cp setup-files/scripts/todoist-query ~/.local/bin/ &&
-  chmod +x ~/.local/bin/todoist-query`; verify in one call:
-  `export TODOIST_API_TOKEN=<token>; todoist-query 'filter=today' | jq length`.
-  Skip step 5 (Inbox project ID; it feeds rituals that aren't installed).
 - Section 26 closing summary — say this instead of the shipped text:
   *"Two commands run your system. `/letsgo` starts a session and catches you up. `/handoff`
   ends one and files what happened into your vault. Everything in between is just talking."*
